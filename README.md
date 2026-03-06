@@ -38,6 +38,10 @@ Cauliform leverages Google's **Gemini Live API** to create a real-time voice age
 
 Fill out forms while walking to your car, during your commute, or while cooking dinner—no screens required.
 
+<p align="center">
+  <img src="screenshot.png" alt="Cauliform App Screenshot" width="400">
+</p>
+
 ## Key Features
 
 - **Voice-First Experience**: Natural conversational interface powered by Gemini Live API
