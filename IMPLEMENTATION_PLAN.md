@@ -1,419 +1,651 @@
 # Implementation Game Plan
 ## Cauliform - Technical Implementation Guide
 
-**Stack:** Next.js + Vercel + Google Cloud + Gemini Live API
+**Stack:** Next.js + Google Cloud Run + Gemini Live API + Firebase
+
+---
+
+## Agent Pipeline Overview
+
+The Cauliform agent follows a structured pipeline that manages user identification, form traversal, response collection, and submission confirmation.
+
+```mermaid
+flowchart TD
+    subgraph Input["📥 Input Layer"]
+        A[User enters Google Form URL] --> B[User enters Phone Number]
+        B --> C[Click 'Call Me']
+    end
+
+    subgraph UserIdentification["👤 User Identification"]
+        C --> D{Phone Number<br/>in Database?}
+        D -->|Yes| E[Load User Profile<br/>name, email, past responses]
+        D -->|No| F[Create New Profile]
+        E --> G[Pre-fill Known Answers]
+        F --> G
+    end
+
+    subgraph FormParsing["📝 Form Parsing"]
+        G --> H[Fetch Google Form]
+        H --> I[Extract All Questions]
+        I --> J[Identify Question Types]
+        J --> K[Build Question Queue]
+    end
+
+    subgraph CallInitiation["📞 Call Initiation"]
+        K --> L[Initiate Twilio Call]
+        L --> M[User Answers Phone]
+        M --> N[Connect to Gemini Live API]
+    end
+
+    subgraph ConversationLoop["🔄 Conversation Loop"]
+        N --> O[Greet User by Name]
+        O --> P{More Questions?}
+        P -->|Yes| Q[Ask Current Question]
+        Q --> R[Listen for Response]
+        R --> S[Validate & Store Answer]
+        S --> T[Move to Next Question]
+        T --> P
+        P -->|No| U[Summarize All Responses]
+    end
+
+    subgraph Confirmation["✅ Confirmation"]
+        U --> V{User Confirms?}
+        V -->|Yes| W[Submit to Google Form]
+        V -->|No| X[Allow Edits]
+        X --> P
+        W --> Y[Update User Profile]
+    end
+
+    subgraph Notification["📧 Notification"]
+        Y --> Z[Send Confirmation Email]
+        Z --> AA[End Call]
+        AA --> BB[Show Success in UI]
+    end
+```
+
+---
+
+## User Profile Data Model
+
+```mermaid
+erDiagram
+    USER_PROFILE {
+        string id PK
+        string phoneNumber UK
+        string email
+        string firstName
+        string lastName
+        string preferredName
+        timestamp createdAt
+        timestamp lastActiveAt
+    }
+
+    KNOWN_RESPONSES {
+        string id PK
+        string userId FK
+        string fieldType
+        string fieldPattern
+        string savedValue
+        int usageCount
+        timestamp lastUsed
+    }
+
+    CALL_SESSION {
+        string id PK
+        string userId FK
+        string formId
+        string formTitle
+        string status
+        timestamp startedAt
+        timestamp completedAt
+    }
+
+    FORM_RESPONSE {
+        string id PK
+        string sessionId FK
+        string questionId
+        string questionText
+        string answer
+        boolean confirmed
+        timestamp answeredAt
+    }
+
+    USER_PROFILE ||--o{ KNOWN_RESPONSES : has
+    USER_PROFILE ||--o{ CALL_SESSION : initiates
+    CALL_SESSION ||--o{ FORM_RESPONSE : contains
+```
+
+---
+
+## Detailed Agent State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: App Loaded
+
+    Idle --> Validating: User submits form
+    Validating --> Error: Invalid URL/Phone
+    Error --> Idle: User corrects input
+
+    Validating --> LookupUser: Valid input
+    LookupUser --> LoadProfile: User found
+    LookupUser --> CreateProfile: New user
+    CreateProfile --> LoadProfile: Profile created
+
+    LoadProfile --> ParsingForm: Profile ready
+    ParsingForm --> Error: Form inaccessible
+    ParsingForm --> InitiatingCall: Questions extracted
+
+    InitiatingCall --> Ringing: Twilio call started
+    Ringing --> Connected: User answers
+    Ringing --> Failed: No answer/declined
+    Failed --> Idle: User can retry
+
+    Connected --> Greeting: Gemini connected
+    Greeting --> AskingQuestion: Greeted user
+
+    AskingQuestion --> ListeningForAnswer: Question asked
+    ListeningForAnswer --> ProcessingAnswer: User responds
+    ListeningForAnswer --> AskingQuestion: User interrupts
+    ProcessingAnswer --> ValidatingAnswer: Answer received
+
+    ValidatingAnswer --> StoringAnswer: Answer valid
+    ValidatingAnswer --> ClarifyingQuestion: Answer unclear
+    ClarifyingQuestion --> ListeningForAnswer: Re-asked
+
+    StoringAnswer --> AskingQuestion: More questions
+    StoringAnswer --> Summarizing: All questions done
+
+    Summarizing --> AwaitingConfirmation: Summary read
+    AwaitingConfirmation --> EditingResponses: User wants changes
+    EditingResponses --> AskingQuestion: Edit specific answer
+
+    AwaitingConfirmation --> SubmittingForm: User confirms
+    SubmittingForm --> SendingEmail: Form submitted
+    SendingEmail --> UpdatingProfile: Email sent
+    UpdatingProfile --> Completed: Profile updated
+
+    Completed --> [*]: Call ended
+```
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           FRONTEND (Vercel)                              │
-│                          Next.js 14 + PWA                                │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  Landing Page          │  Call Status Page    │  Success Page   │    │
-│  │  - Google Form URL     │  - "Calling you..."  │  - Confirmation │    │
-│  │  - Phone number        │  - Live transcript   │  - Form link    │    │
-│  │  - "Call Me" button    │  - Cancel option     │                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼ API Routes
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         BACKEND (Next.js API Routes)                     │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐       │
-│  │ /api/parse-form  │  │ /api/start-call  │  │ /api/webhook     │       │
-│  │ Parse Google Form│  │ Trigger Twilio   │  │ Twilio callbacks │       │
-│  └──────────────────┘  └──────────────────┘  └──────────────────┘       │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-              ┌─────────────────────┼─────────────────────┐
-              ▼                     ▼                     ▼
-┌──────────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐
-│   Google Forms API   │ │   Gemini Live API    │ │      Twilio          │
-│   (Parse questions)  │ │   (Voice AI Agent)   │ │   (Phone calls)      │
-│                      │ │   - Real-time STT    │ │   - Outbound calls   │
-│   OR: Web scraping   │ │   - Real-time TTS    │ │   - Audio streaming  │
-│   as fallback        │ │   - Conversation     │ │   - Webhooks         │
-└──────────────────────┘ └──────────────────────┘ └──────────────────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │  Firebase Firestore  │
-                         │  - Session state     │
-                         │  - User profiles     │
-                         │  - Call history      │
-                         └──────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           FRONTEND (Next.js on Cloud Run)                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Landing Page          │  Call Status Page    │  Success Page       │    │
+│  │  - Google Form URL     │  - "Calling you..."  │  - Confirmation     │    │
+│  │  - Phone number        │  - Live transcript   │  - Email sent       │    │
+│  │  - "Call Me" button    │  - Cancel option     │  - Form responses   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼ API Routes
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BACKEND (Next.js API Routes)                         │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
+│  │ /api/      │  │ /api/      │  │ /api/      │  │ /api/      │            │
+│  │ parse-form │  │ start-call │  │ webhook    │  │ send-email │            │
+│  └────────────┘  └────────────┘  └────────────┘  └────────────┘            │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        ▼                             ▼                             ▼
+┌────────────────────┐  ┌──────────────────────────┐  ┌────────────────────┐
+│   Firebase         │  │   Gemini Live API        │  │      Twilio        │
+│   Firestore        │  │   (Voice AI Agent)       │  │   (Phone calls)    │
+│   ─────────────    │  │   ─────────────────      │  │   ─────────────    │
+│   • User Profiles  │  │   • Real-time STT        │  │   • Outbound calls │
+│   • Known Answers  │  │   • Real-time TTS        │  │   • Audio stream   │
+│   • Call Sessions  │  │   • Conversation State   │  │   • Webhooks       │
+│   • Form Responses │  │   • Barge-in Support     │  │                    │
+└────────────────────┘  └──────────────────────────┘  └────────────────────┘
+                                      │
+                                      ▼
+                        ┌──────────────────────────┐
+                        │   Google Forms API       │
+                        │   ─────────────────      │
+                        │   • Parse form structure │
+                        │   • Submit responses     │
+                        └──────────────────────────┘
+                                      │
+                                      ▼
+                        ┌──────────────────────────┐
+                        │   SendGrid / Gmail API   │
+                        │   ─────────────────      │
+                        │   • Confirmation emails  │
+                        │   • Response summary     │
+                        └──────────────────────────┘
 ```
 
 ---
 
-## Phase 1: Foundation (Days 1-2)
+## Call Flow Sequence Diagram
 
-### 1.1 Project Setup ✅
-```bash
-# Already done
-npx create-next-app@latest --typescript --tailwind --app
-npm install @google/generative-ai firebase next-pwa twilio
-```
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant B as Backend
+    participant DB as Firestore
+    participant TW as Twilio
+    participant GEM as Gemini Live
+    participant GF as Google Forms
+    participant EM as Email Service
 
-### 1.2 Environment Configuration
-Create `.env.local`:
-```env
-# Google AI
-GOOGLE_AI_API_KEY=your_gemini_api_key
-GOOGLE_CLOUD_PROJECT=your_project_id
+    U->>F: Enter Form URL + Phone
+    F->>B: POST /api/start-call
 
-# Twilio
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-TWILIO_PHONE_NUMBER=+1234567890
+    B->>DB: Lookup user by phone
+    alt User exists
+        DB-->>B: Return user profile
+        B->>B: Load known responses
+    else New user
+        B->>DB: Create new profile
+    end
 
-# Firebase
-NEXT_PUBLIC_FIREBASE_API_KEY=your_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project
+    B->>GF: Fetch & parse form
+    GF-->>B: Return questions[]
 
-# App
-NEXT_PUBLIC_APP_URL=https://cauliform.vercel.app
-```
+    B->>DB: Create call session
+    B->>TW: Initiate outbound call
+    TW-->>U: Phone rings
+    U->>TW: Answer call
 
-### 1.3 PWA Configuration
-Create `next.config.ts`:
-```typescript
-import type { NextConfig } from "next";
-import withPWA from "next-pwa";
+    TW->>B: Call connected webhook
+    B->>GEM: Initialize conversation
 
-const nextConfig: NextConfig = withPWA({
-  dest: "public",
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
-})({
-  // Next.js config
-});
+    GEM->>TW: "Hi [Name]! Let's fill out [Form]"
+    TW->>U: Play audio
 
-export default nextConfig;
-```
+    loop For each question
+        GEM->>TW: Ask question
+        TW->>U: Play audio
+        U->>TW: Speak answer
+        TW->>GEM: Stream audio
+        GEM->>B: Store response
+        B->>DB: Save form_response
+    end
 
-### 1.4 Folder Structure
-```
-src/
-├── app/
-│   ├── layout.tsx          # Root layout with PWA meta
-│   ├── page.tsx            # Landing page (URL + phone input)
-│   ├── call/[id]/page.tsx  # Call status page
-│   ├── success/page.tsx    # Success confirmation
-│   └── api/
-│       ├── parse-form/route.ts    # Parse Google Form
-│       ├── start-call/route.ts    # Initiate Twilio call
-│       ├── webhook/route.ts       # Twilio webhook handler
-│       └── submit-form/route.ts   # Submit to Google Form
-├── components/
-│   ├── ui/                 # Reusable UI components
-│   ├── FormInput.tsx       # URL + phone input form
-│   ├── CallStatus.tsx      # Real-time call status
-│   └── Transcript.tsx      # Live transcript display
-├── lib/
-│   ├── gemini.ts           # Gemini API wrapper
-│   ├── twilio.ts           # Twilio client
-│   ├── firebase.ts         # Firebase config
-│   ├── form-parser.ts      # Google Form parsing logic
-│   └── types.ts            # TypeScript types
-└── hooks/
-    ├── useCallStatus.ts    # WebSocket for call updates
-    └── useFormParser.ts    # Form parsing hook
+    GEM->>TW: "Let me confirm your answers..."
+    TW->>U: Play summary
+    U->>TW: "Yes, submit"
+    TW->>GEM: Confirmation received
+
+    GEM->>B: Submit form
+    B->>GF: POST form responses
+    GF-->>B: Submission confirmed
+
+    B->>DB: Update user profile
+    B->>DB: Mark session complete
+
+    B->>EM: Send confirmation email
+    EM-->>U: Email received
+
+    GEM->>TW: "Done! Check your email. Goodbye!"
+    TW->>U: Play audio
+    TW->>B: Call ended
+    B->>F: Update UI (WebSocket)
+    F->>U: Show success page
 ```
 
 ---
 
-## Phase 2: Core Features (Days 3-5)
+## User Profile System
 
-### 2.1 Google Form Parsing
+### Profile Schema (Firestore)
 
-**Option A: Google Forms API (if form is owned)**
 ```typescript
-// src/lib/form-parser.ts
-import { google } from 'googleapis';
+// src/lib/types.ts
 
-export async function parseGoogleForm(formUrl: string) {
-  const formId = extractFormId(formUrl);
-  const forms = google.forms({ version: 'v1' });
+interface UserProfile {
+  id: string;
+  phoneNumber: string;           // Primary identifier (E.164 format)
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  preferredName?: string;        // "Call me Alex"
 
-  const response = await forms.forms.get({ formId });
+  // Auto-learned responses
+  knownResponses: {
+    [fieldPattern: string]: {    // e.g., "email", "full_name", "company"
+      value: string;
+      usageCount: number;
+      lastUsed: Date;
+    };
+  };
 
-  return response.data.items?.map(item => ({
-    id: item.itemId,
-    title: item.title,
-    type: item.questionItem?.question?.questionId,
-    required: item.questionItem?.question?.required,
-    options: item.questionItem?.question?.choiceQuestion?.options
-  }));
+  // Statistics
+  formsCompleted: number;
+  totalCallMinutes: number;
+
+  // Timestamps
+  createdAt: Date;
+  lastActiveAt: Date;
+}
+
+interface CallSession {
+  id: string;
+  userId: string;
+  formId: string;
+  formUrl: string;
+  formTitle: string;
+
+  status: 'pending' | 'calling' | 'in_progress' | 'confirming' |
+          'submitted' | 'failed' | 'cancelled';
+
+  currentQuestionIndex: number;
+  responses: FormResponse[];
+
+  twilioCallSid?: string;
+
+  startedAt: Date;
+  completedAt?: Date;
+}
+
+interface FormResponse {
+  questionId: string;
+  questionText: string;
+  questionType: string;
+  answer: string;
+  confidence: number;           // Voice recognition confidence
+  confirmedByUser: boolean;
+  answeredAt: Date;
 }
 ```
 
-**Option B: Web Scraping (any public form)**
+### User Lookup & Profile Loading
+
 ```typescript
-// src/lib/form-parser.ts
-import * as cheerio from 'cheerio';
+// src/lib/user-profile.ts
+import { db } from './firebase';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
-export async function scrapeGoogleForm(formUrl: string) {
-  const response = await fetch(formUrl);
-  const html = await response.text();
-  const $ = cheerio.load(html);
+export async function getOrCreateUserProfile(phoneNumber: string): Promise<UserProfile> {
+  const normalizedPhone = normalizePhoneNumber(phoneNumber);
+  const userRef = doc(db, 'users', normalizedPhone);
+  const userSnap = await getDoc(userRef);
 
-  const questions: Question[] = [];
+  if (userSnap.exists()) {
+    // Update last active
+    await updateDoc(userRef, { lastActiveAt: new Date() });
+    return userSnap.data() as UserProfile;
+  }
 
-  // Parse form structure from HTML
-  $('[data-params]').each((_, el) => {
-    const params = JSON.parse($(el).attr('data-params') || '[]');
-    questions.push({
-      id: params[0],
-      title: params[1],
-      type: mapQuestionType(params[3]),
-      options: params[4]?.[0]?.map((opt: any) => opt[0])
-    });
-  });
+  // Create new profile
+  const newProfile: UserProfile = {
+    id: normalizedPhone,
+    phoneNumber: normalizedPhone,
+    knownResponses: {},
+    formsCompleted: 0,
+    totalCallMinutes: 0,
+    createdAt: new Date(),
+    lastActiveAt: new Date(),
+  };
 
-  return questions;
+  await setDoc(userRef, newProfile);
+  return newProfile;
 }
-```
 
-### 2.2 Twilio Voice Integration
+export async function updateUserProfile(
+  phoneNumber: string,
+  responses: FormResponse[]
+): Promise<void> {
+  const userRef = doc(db, 'users', normalizePhoneNumber(phoneNumber));
 
-```typescript
-// src/app/api/start-call/route.ts
-import twilio from 'twilio';
-import { NextResponse } from 'next/server';
+  // Extract learnable fields
+  const knownResponses: Record<string, any> = {};
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
-
-export async function POST(request: Request) {
-  const { phoneNumber, formUrl, sessionId } = await request.json();
-
-  const call = await client.calls.create({
-    to: phoneNumber,
-    from: process.env.TWILIO_PHONE_NUMBER!,
-    url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook?session=${sessionId}`,
-    statusCallback: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/status`,
-  });
-
-  return NextResponse.json({ callSid: call.sid, sessionId });
-}
-```
-
-### 2.3 Gemini Live API Integration
-
-```typescript
-// src/lib/gemini.ts
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
-
-export async function createVoiceAgent(questions: Question[]) {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-exp",
-    systemInstruction: `You are Cauli, a friendly voice assistant helping users fill out forms.
-
-    QUESTIONS TO ASK:
-    ${questions.map((q, i) => `${i + 1}. ${q.title} (${q.type})`).join('\n')}
-
-    INSTRUCTIONS:
-    - Greet the user warmly
-    - Ask one question at a time
-    - For multiple choice, read all options
-    - Confirm understanding before moving on
-    - At the end, summarize all answers and ask for confirmation
-    - Be conversational and handle interruptions gracefully`
-  });
-
-  return model;
-}
-```
-
-### 2.4 Real-time Audio Streaming (Twilio ↔ Gemini)
-
-```typescript
-// src/app/api/webhook/route.ts
-import { NextResponse } from 'next/server';
-import twilio from 'twilio';
-
-export async function POST(request: Request) {
-  const twiml = new twilio.twiml.VoiceResponse();
-
-  // Connect to WebSocket for real-time streaming
-  const connect = twiml.connect();
-  connect.stream({
-    url: `wss://${process.env.NEXT_PUBLIC_APP_URL}/api/stream`,
-    track: 'both_tracks'
-  });
-
-  return new NextResponse(twiml.toString(), {
-    headers: { 'Content-Type': 'text/xml' }
-  });
-}
-```
-
----
-
-## Phase 3: Polish (Days 6-8)
-
-### 3.1 UI Components
-
-**Landing Page:**
-```typescript
-// src/app/page.tsx
-export default function Home() {
-  return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4">
-      <img src="/logo.png" alt="Cauliform" className="w-32 mb-8" />
-      <h1 className="text-3xl font-bold mb-2">Cauliform</h1>
-      <p className="text-gray-600 mb-8">Turn any Google Form into a phone call</p>
-
-      <form className="w-full max-w-md space-y-4">
-        <input
-          type="url"
-          placeholder="Paste Google Form URL..."
-          className="w-full p-4 border rounded-lg"
-        />
-        <input
-          type="tel"
-          placeholder="Your phone number"
-          className="w-full p-4 border rounded-lg"
-        />
-        <button className="w-full p-4 bg-black text-white rounded-lg">
-          Call Me
-        </button>
-      </form>
-    </main>
-  );
-}
-```
-
-### 3.2 Error Handling
-
-| Error | User Message | Action |
-|-------|--------------|--------|
-| Invalid URL | "Please enter a valid Google Form link" | Validate on input |
-| Form not accessible | "This form is private or doesn't exist" | Show error state |
-| Call failed | "Couldn't connect. Check your number" | Retry button |
-| Voice unclear | "Sorry, I didn't catch that. Could you repeat?" | Re-prompt |
-
-### 3.3 Interruption Handling
-
-```typescript
-// Gemini Live API supports barge-in natively
-// When user speaks, it stops TTS and processes input
-const liveConfig = {
-  responseModalities: ["AUDIO"],
-  speechConfig: {
-    voiceConfig: {
-      prebuiltVoiceConfig: {
-        voiceName: "Aoede"  // Natural female voice
-      }
+  for (const response of responses) {
+    const fieldType = identifyFieldType(response.questionText);
+    if (fieldType) {
+      knownResponses[`knownResponses.${fieldType}`] = {
+        value: response.answer,
+        usageCount: increment(1),
+        lastUsed: new Date(),
+      };
     }
   }
-};
+
+  await updateDoc(userRef, {
+    ...knownResponses,
+    formsCompleted: increment(1),
+    lastActiveAt: new Date(),
+  });
+}
+
+function identifyFieldType(questionText: string): string | null {
+  const patterns: [RegExp, string][] = [
+    [/email|e-mail/i, 'email'],
+    [/full name|your name/i, 'fullName'],
+    [/first name/i, 'firstName'],
+    [/last name|surname/i, 'lastName'],
+    [/phone|mobile|cell/i, 'phone'],
+    [/company|organization|employer/i, 'company'],
+    [/job title|position|role/i, 'jobTitle'],
+    [/address|street/i, 'address'],
+    [/city/i, 'city'],
+    [/state|province/i, 'state'],
+    [/zip|postal/i, 'zipCode'],
+    [/country/i, 'country'],
+  ];
+
+  for (const [pattern, fieldType] of patterns) {
+    if (pattern.test(questionText)) {
+      return fieldType;
+    }
+  }
+  return null;
+}
 ```
 
 ---
 
-## Phase 4: Deploy & Demo (Days 9-11)
+## Gemini Agent Conversation Logic
 
-### 4.1 Vercel Deployment
+```typescript
+// src/lib/gemini-agent.ts
 
-```bash
-# Install Vercel CLI
-npm i -g vercel
+export function buildAgentSystemPrompt(
+  userProfile: UserProfile,
+  formTitle: string,
+  questions: Question[]
+): string {
+  const userName = userProfile.preferredName || userProfile.firstName || 'there';
 
-# Deploy
-vercel --prod
+  const knownAnswersHint = Object.entries(userProfile.knownResponses)
+    .map(([field, data]) => `- ${field}: "${data.value}"`)
+    .join('\n');
 
-# Set environment variables in Vercel dashboard
+  return `You are Cauli, a friendly and efficient voice assistant helping users fill out forms over the phone.
+
+## USER CONTEXT
+- Name: ${userName}
+- Phone: ${userProfile.phoneNumber}
+${userProfile.email ? `- Email: ${userProfile.email}` : ''}
+- Forms completed previously: ${userProfile.formsCompleted}
+
+## KNOWN INFORMATION (use to pre-fill or confirm)
+${knownAnswersHint || '(No prior data)'}
+
+## FORM TO COMPLETE
+Title: "${formTitle}"
+
+Questions:
+${questions.map((q, i) => `${i + 1}. [${q.type}] ${q.title}${q.required ? ' (required)' : ''}`).join('\n')}
+
+## CONVERSATION FLOW
+1. GREETING: Start with "Hi ${userName}! I'm Cauli, and I'll help you fill out ${formTitle}. This should only take a couple minutes."
+
+2. FOR EACH QUESTION:
+   - If we have a known answer, say: "For [question], I have [known value] on file. Should I use that, or would you like to provide a different answer?"
+   - If new question, ask clearly and wait for response
+   - For multiple choice: Read ALL options clearly
+   - Confirm unclear answers: "Just to confirm, you said [answer], is that right?"
+
+3. SUMMARY: After all questions, read back ALL answers:
+   "Great! Let me read back your responses:
+   - [Question 1]: [Answer 1]
+   - [Question 2]: [Answer 2]
+   ...
+   Does everything look correct? Say 'yes' to submit, or tell me what you'd like to change."
+
+4. SUBMISSION: After confirmation:
+   "Perfect! I'm submitting your form now... Done! You'll receive a confirmation email shortly. Thanks for using Cauliform, ${userName}. Have a great day!"
+
+## VOICE STYLE
+- Warm, professional, efficient
+- Clear enunciation, natural pacing
+- Handle interruptions gracefully (stop talking when user speaks)
+- Keep responses concise - this is a phone call, not a chat`;
+}
 ```
 
-### 4.2 Demo Checklist
-
-- [ ] **Happy path demo** (30 sec form completion)
-- [ ] **Interruption demo** (user cuts off AI mid-sentence)
-- [ ] **Multiple choice demo** (AI reads options)
-- [ ] **Confirmation flow** (AI reads back answers)
-- [ ] **Error recovery** (unclear response handling)
-
-### 4.3 Video Script (4 min max)
-
-| Time | Content |
-|------|---------|
-| 0:00-0:30 | Problem statement + hook |
-| 0:30-1:30 | Live demo - paste URL, receive call, answer questions |
-| 1:30-2:30 | Show key features (interruption, confirmation) |
-| 2:30-3:15 | Architecture diagram + tech explanation |
-| 3:15-3:45 | User testimonials (optional) |
-| 3:45-4:00 | Call to action + team |
-
 ---
 
-## Google Tech Stack Summary
+## Email Notification System
 
-| Google Product | Usage |
-|----------------|-------|
-| **Gemini Live API** | Real-time voice AI agent (mandatory) |
-| **Google GenAI SDK** | SDK for Gemini integration (mandatory) |
-| **Firebase Firestore** | Session state, user profiles |
-| **Firebase Auth** | Google OAuth (optional) |
-| **Google Forms API** | Parse form structure |
-| **Google Cloud Run** | Alternative backend hosting |
+```typescript
+// src/lib/email.ts
+import { Resend } from 'resend';
 
----
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-## Daily Milestones
+export async function sendConfirmationEmail(
+  userEmail: string,
+  formTitle: string,
+  responses: FormResponse[],
+  formUrl: string
+): Promise<void> {
+  const responseList = responses
+    .map(r => `<tr>
+      <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>${r.questionText}</strong></td>
+      <td style="padding: 8px; border-bottom: 1px solid #eee;">${r.answer}</td>
+    </tr>`)
+    .join('');
 
-| Day | Milestone | Success Criteria |
-|-----|-----------|------------------|
-| 1 | Env setup + basic UI | Can input URL and phone |
-| 2 | Twilio integration | Can make outbound call |
-| 3 | Form parsing works | Extract questions from any form |
-| 4 | Gemini voice agent | Basic Q&A conversation |
-| 5 | Full flow integration | Form → Call → Questions → Submit |
-| 6 | Error handling | Graceful failures |
-| 7 | UI polish | Looks demo-ready |
-| 8 | Interruption handling | Barge-in works smoothly |
-| 9 | Deploy to Vercel | Live URL working |
-| 10 | Record demo video | < 4 min, shows all features |
-| 11 | Submit to Devpost | All deliverables complete |
+  await resend.emails.send({
+    from: 'Cauliform <noreply@cauliform.app>',
+    to: userEmail,
+    subject: `✅ Form Submitted: ${formTitle}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <img src="https://cauliform.app/logo.png" alt="Cauliform" style="width: 80px; margin-bottom: 20px;">
 
----
+        <h1 style="color: #333;">Form Submitted Successfully!</h1>
 
-## Quick Start Commands
+        <p>Hi there,</p>
 
-```bash
-# Development
-npm run dev
+        <p>Your responses to <strong>${formTitle}</strong> have been submitted successfully.</p>
 
-# Build
-npm run build
+        <h2 style="color: #666; font-size: 16px; margin-top: 30px;">Your Responses:</h2>
 
-# Deploy to Vercel
-vercel --prod
+        <table style="width: 100%; border-collapse: collapse;">
+          ${responseList}
+        </table>
 
-# Test Twilio locally (with ngrok)
-ngrok http 3000
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          Original form: <a href="${formUrl}">${formUrl}</a>
+        </p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+
+        <p style="color: #999; font-size: 12px;">
+          This form was completed via Cauliform - voice-powered form filling.
+          <br>
+          <a href="https://cauliform.app">Learn more</a>
+        </p>
+      </div>
+    `,
+  });
+}
 ```
+
+---
+
+## Phase Implementation Timeline
+
+### Phase 1: Foundation (Days 1-2) ✅
+- [x] Next.js project setup
+- [x] Basic UI (landing page)
+- [x] Environment configuration
+- [x] Dockerfile for Cloud Run
+
+### Phase 2: User Profile System (Days 3-4)
+- [ ] Firebase Firestore setup
+- [ ] User profile CRUD operations
+- [ ] Phone number normalization
+- [ ] Known responses storage
+
+### Phase 3: Form Parsing & Call Flow (Days 5-6)
+- [ ] Google Form parsing (scraping + API)
+- [ ] Twilio integration
+- [ ] Call session management
+- [ ] WebSocket for UI updates
+
+### Phase 4: Gemini Agent (Days 7-8)
+- [ ] Gemini Live API integration
+- [ ] Agent system prompt
+- [ ] Question traversal logic
+- [ ] Response validation
+- [ ] Confirmation flow
+
+### Phase 5: Submission & Notifications (Days 9-10)
+- [ ] Google Form submission
+- [ ] Email confirmation (Resend/SendGrid)
+- [ ] Profile learning & updates
+- [ ] Error handling
+
+### Phase 6: Polish & Demo (Days 11)
+- [ ] Deploy to Cloud Run
+- [ ] End-to-end testing
+- [ ] Demo video recording
+- [ ] Devpost submission
 
 ---
 
 ## Key Files to Implement
 
-1. `src/app/page.tsx` - Landing page UI
-2. `src/app/api/parse-form/route.ts` - Form parsing endpoint
-3. `src/app/api/start-call/route.ts` - Twilio call initiation
-4. `src/app/api/webhook/route.ts` - Twilio webhook handler
-5. `src/lib/gemini.ts` - Gemini Live API wrapper
-6. `src/lib/form-parser.ts` - Google Form parsing logic
+| Priority | File | Purpose |
+|----------|------|---------|
+| 1 | `src/lib/user-profile.ts` | User profile CRUD, phone lookup |
+| 2 | `src/lib/session.ts` | Call session management |
+| 3 | `src/lib/gemini-agent.ts` | Conversation logic & prompts |
+| 4 | `src/lib/form-parser.ts` | Google Form extraction |
+| 5 | `src/lib/email.ts` | Confirmation emails |
+| 6 | `src/app/api/start-call/route.ts` | Call initiation endpoint |
+| 7 | `src/app/api/webhook/route.ts` | Twilio webhook handler |
+| 8 | `src/app/api/submit-form/route.ts` | Form submission |
+
+---
+
+## Environment Variables
+
+```env
+# Google AI (Gemini)
+GOOGLE_AI_API_KEY=your_gemini_api_key
+GOOGLE_CLOUD_PROJECT=your_project_id
+
+# Twilio Voice
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# Firebase
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+
+# Email (Resend)
+RESEND_API_KEY=re_xxxxx
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=https://cauliform.run.app
+```
 
 ---
 

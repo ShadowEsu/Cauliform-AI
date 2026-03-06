@@ -149,10 +149,190 @@ Cauliform is an AI-powered voice agent that converts Google Forms into phone cal
 | Gemini Live API | Real-time voice AI | [Google AI Studio](https://aistudio.google.com) |
 | Twilio Voice | Phone calls | [Twilio Docs](https://www.twilio.com/docs/voice) |
 | Google Forms API | Parse form structure | [Forms API](https://developers.google.com/forms/api) |
+| Firebase Firestore | User profiles & sessions | [Firestore Docs](https://firebase.google.com/docs/firestore) |
+| Resend/SendGrid | Confirmation emails | [Resend Docs](https://resend.com/docs) |
 
 ---
 
-## 7. System Architecture
+## 7. Agent Pipeline
+
+The Cauliform agent follows a structured pipeline that manages user identification, form traversal, response collection, and submission confirmation.
+
+### 7.1 High-Level Pipeline Flow
+
+```mermaid
+flowchart LR
+    subgraph Input
+        A[Form URL + Phone] --> B[Validate Input]
+    end
+
+    subgraph UserLookup["User Identification"]
+        B --> C{Known User?}
+        C -->|Yes| D[Load Profile]
+        C -->|No| E[Create Profile]
+        D --> F[Pre-fill Answers]
+        E --> F
+    end
+
+    subgraph FormProcess["Form Processing"]
+        F --> G[Parse Form]
+        G --> H[Build Question Queue]
+    end
+
+    subgraph Call["Voice Call"]
+        H --> I[Initiate Call]
+        I --> J[Gemini Agent]
+        J --> K[Question Loop]
+        K --> L[Confirm Responses]
+    end
+
+    subgraph Submit["Submission"]
+        L --> M[Submit Form]
+        M --> N[Update Profile]
+        N --> O[Send Email]
+    end
+```
+
+### 7.2 User Profile System
+
+Phone number serves as the primary user identifier. The system learns and remembers common responses across forms.
+
+```mermaid
+erDiagram
+    USER_PROFILE {
+        string phoneNumber PK "E.164 format"
+        string email
+        string firstName
+        string lastName
+        json knownResponses "Auto-learned fields"
+        int formsCompleted
+        timestamp lastActiveAt
+    }
+
+    CALL_SESSION {
+        string id PK
+        string phoneNumber FK
+        string formUrl
+        string formTitle
+        string status
+        json responses
+        timestamp startedAt
+    }
+
+    USER_PROFILE ||--o{ CALL_SESSION : initiates
+```
+
+**Known Response Fields (Auto-Learned):**
+- `email` - Email address
+- `fullName` - Full name
+- `firstName` / `lastName` - Name parts
+- `phone` - Phone number
+- `company` - Organization name
+- `jobTitle` - Position/role
+- `address`, `city`, `state`, `zipCode`, `country` - Location info
+
+### 7.3 Conversation State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+
+    Idle --> LookupUser: Start Call
+    LookupUser --> LoadProfile: User Found
+    LookupUser --> CreateProfile: New User
+
+    LoadProfile --> ParsingForm
+    CreateProfile --> ParsingForm
+
+    ParsingForm --> Calling: Questions Ready
+    Calling --> Connected: User Answers
+    Calling --> Failed: No Answer
+
+    Connected --> Greeting
+    Greeting --> AskQuestion
+
+    AskQuestion --> Listening: Question Asked
+    Listening --> Processing: Response Heard
+    Processing --> AskQuestion: More Questions
+    Processing --> Summarizing: All Done
+
+    Summarizing --> Confirming: Summary Read
+    Confirming --> Submitting: User Confirms
+    Confirming --> AskQuestion: User Edits
+
+    Submitting --> SendingEmail: Form Submitted
+    SendingEmail --> Completed: Email Sent
+    Completed --> [*]
+
+    Failed --> [*]
+```
+
+### 7.4 Detailed Call Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant B as Backend
+    participant DB as Firestore
+    participant TW as Twilio
+    participant G as Gemini Live
+    participant GF as Google Forms
+    participant E as Email
+
+    U->>F: Enter Form URL + Phone
+    F->>B: POST /api/start-call
+
+    B->>DB: Lookup user by phone
+    alt Existing User
+        DB-->>B: User profile + known responses
+    else New User
+        B->>DB: Create new profile
+    end
+
+    B->>GF: Parse form questions
+    GF-->>B: Questions[]
+
+    B->>DB: Create call session
+    B->>TW: Initiate call
+    TW-->>U: Phone rings
+    U->>TW: Answer
+
+    TW->>B: Call connected
+    B->>G: Start conversation
+
+    G->>U: "Hi [Name]! I'll help you fill out [Form]..."
+
+    loop Each Question
+        G->>U: Ask question (use known answer if available)
+        U->>G: Speak response
+        G->>B: Store response
+        B->>DB: Save to session
+    end
+
+    G->>U: "Let me confirm your answers..."
+    U->>G: "Yes, submit"
+
+    B->>GF: Submit form responses
+    B->>DB: Update user profile with learned responses
+    B->>E: Send confirmation email
+    E-->>U: Email received
+
+    G->>U: "Done! Check your email. Goodbye!"
+    TW->>B: Call ended
+```
+
+### 7.5 Email Confirmation
+
+After successful form submission, users receive an email containing:
+- Form title
+- All questions and their submitted answers
+- Link to original form
+- Timestamp of submission
+
+---
+
+## 8. System Architecture
 
 ### Call Flow Sequence
 

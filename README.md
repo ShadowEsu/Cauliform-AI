@@ -62,7 +62,65 @@ Fill out forms while walking to your car, during your commute, or while cooking 
 | **Backend** | Next.js API Routes |
 | **Cloud Infrastructure** | Google Cloud Run |
 | **Database** | Firebase Firestore |
+| **Email** | Resend / SendGrid |
 | **Authentication** | Google OAuth (optional) |
+
+## Agent Pipeline
+
+The voice agent follows a structured pipeline: **identify user → parse form → conduct call → confirm → submit → notify**.
+
+```mermaid
+flowchart LR
+    A[📱 User Input] --> B{Known User?}
+    B -->|Yes| C[Load Profile]
+    B -->|No| D[Create Profile]
+    C --> E[Parse Form]
+    D --> E
+    E --> F[📞 Initiate Call]
+    F --> G[🤖 Gemini Agent]
+    G --> H[Ask Questions]
+    H --> I[Confirm Answers]
+    I --> J[✅ Submit Form]
+    J --> K[📧 Send Email]
+```
+
+### Call Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Cauliform
+    participant G as Gemini Live
+    participant F as Google Forms
+
+    U->>C: Paste form URL + phone
+    C->>C: Lookup/create user profile
+    C->>F: Parse form questions
+    C->>U: 📞 Phone call
+
+    loop Each Question
+        G->>U: Ask question (pre-fill if known)
+        U->>G: Speak answer
+        G->>C: Store response
+    end
+
+    G->>U: "Confirm your answers..."
+    U->>G: "Yes, submit"
+    C->>F: Submit responses
+    C->>U: 📧 Confirmation email
+    G->>U: "Done! Goodbye!"
+```
+
+### User Profile System
+
+Phone number is the primary identifier. The agent learns and remembers common responses:
+
+| Field Type | Example Question | Saved As |
+|------------|------------------|----------|
+| `email` | "What's your email?" | `john@example.com` |
+| `fullName` | "What's your name?" | `John Smith` |
+| `company` | "Where do you work?" | `Acme Corp` |
+| `jobTitle` | "What's your role?" | `Software Engineer` |
 
 ## Architecture
 
@@ -83,12 +141,23 @@ Fill out forms while walking to your car, during your commute, or while cooking 
 │  └──────────────┘  └──────────────┘  └──────────────┘           │
 └─────────────────────────────────────────────────────────────────┘
                                 │
-              ┌─────────────────┼─────────────────┐
-              ▼                 ▼                 ▼
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                       ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Google Forms    │  │  Gemini Live API │  │     Twilio       │
-│  Parse & Submit  │  │  Voice AI Agent  │  │  Phone Calls     │
+│  Firebase        │  │  Gemini Live API │  │     Twilio       │
+│  Firestore       │  │  Voice AI Agent  │  │  Phone Calls     │
+│  ─────────────   │  │  ─────────────   │  │  ─────────────   │
+│  • User Profiles │  │  • Real-time STT │  │  • Outbound call │
+│  • Known Answers │  │  • Real-time TTS │  │  • Audio stream  │
+│  • Call Sessions │  │  • Conversation  │  │  • Webhooks      │
 └──────────────────┘  └──────────────────┘  └──────────────────┘
+                                │
+              ┌─────────────────┴─────────────────┐
+              ▼                                   ▼
+┌──────────────────────┐            ┌──────────────────────┐
+│    Google Forms      │            │    Email Service     │
+│    Parse & Submit    │            │    Confirmation      │
+└──────────────────────┘            └──────────────────────┘
 ```
 
 ## Getting Started
