@@ -214,6 +214,33 @@ npm run dev
 # Open http://localhost:3000
 ```
 
+### Browser Audio-to-Audio Test (Gemini Live)
+
+1. Run `npm run dev`
+2. Open `http://localhost:3000`
+3. Click **Start Live Voice Session**
+4. Allow microphone access
+5. Speak and listen for streamed voice responses from Gemini Live
+
+This flow uses backend-issued ephemeral tokens (`/api/live-token`) so your main Gemini API key is not exposed to the browser.
+
+### Test Gemini Live API (Standalone)
+
+Before wiring Twilio, you can verify Gemini Live audio responses directly from Node:
+
+```bash
+# load env vars from .env.local (zsh/bash)
+set -a && source .env.local && set +a
+
+# run a single Live API turn and save wav output
+npm run live:test -- "Introduce yourself in one sentence." ./gemini-live-output.wav
+```
+
+Notes:
+- Uses `GEMINI_API_KEY` first, and falls back to `GOOGLE_AI_API_KEY`
+- Default model: `models/gemini-2.5-flash-native-audio-preview-12-2025`
+- Output WAV is written to the path you pass as the second argument
+
 ## Deployment
 
 ### Google Cloud Run (Recommended)
@@ -282,13 +309,17 @@ src/
 │   ├── page.tsx                 # Landing page
 │   └── api/
 │       ├── parse-form/          # Google Form parser
+│       ├── live-token/          # Gemini Live ephemeral token
+│       ├── form-sessions/       # Tool-backed form session APIs
 │       ├── start-call/          # Twilio call initiation
 │       └── webhook/             # Twilio callbacks
 ├── lib/
 │   ├── types.ts                 # TypeScript definitions
-│   ├── gemini.ts                # Gemini API wrapper
 │   ├── firebase.ts              # Firebase configuration
-│   └── form-parser.ts           # Form parsing logic
+│   ├── form-parser.ts           # Form parsing logic
+│   ├── form-sessions.ts         # In-memory session store
+│   ├── form-tools.ts            # Gemini tool handlers
+│   └── google-form-submit.ts    # Google Form submission logic
 └── components/                  # React components
 ```
 
