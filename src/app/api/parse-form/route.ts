@@ -23,7 +23,27 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: formData,
+      data: {
+        id: formData.id,
+        title: formData.title,
+        description: formData.description,
+        questionCount: formData.questions.filter((question) =>
+          [
+            "short_text",
+            "long_text",
+            "multiple_choice",
+            "dropdown",
+            "checkbox",
+            "date",
+            "time",
+            "scale",
+            "grid",
+            "file_upload",
+          ].includes(question.kind)
+        ).length,
+        capabilities: formData.capabilities,
+        unsupportedReason: formData.unsupportedReason,
+      },
     });
   } catch (error) {
     console.error("Error parsing form:", error);

@@ -1,59 +1,139 @@
-// Core types for Cauliform
-
-export interface Question {
-  id: string;
-  title: string;
-  type: QuestionType;
-  required: boolean;
-  options?: string[];
-  description?: string;
-}
-
-export type QuestionType =
+export type QuestionKind =
   | "short_text"
   | "long_text"
   | "multiple_choice"
-  | "checkbox"
   | "dropdown"
+  | "checkbox"
   | "date"
   | "time"
-  | "file_upload";
+  | "scale"
+  | "grid"
+  | "file_upload"
+  | "section"
+  | "static_text"
+  | "image"
+  | "video";
 
-export interface FormData {
+export type SessionPhase =
+  | "intake"
+  | "review"
+  | "submitting"
+  | "submitted"
+  | "unsupported";
+
+export interface QuestionValidation {
+  type: string;
+  hint?: string;
+}
+
+export interface QuestionGrid {
+  kind: "multiple_choice" | "checkbox";
+  rows: string[];
+  columns: string[];
+  limitOnePerColumn?: boolean;
+}
+
+export interface ScaleConfig {
+  values: string[];
+  minLabel?: string;
+  maxLabel?: string;
+}
+
+export interface NormalizedQuestion {
+  id: string;
+  entryId?: string;
+  kind: QuestionKind;
+  title: string;
+  helpText?: string;
+  required: boolean;
+  options?: string[];
+  sectionId?: string;
+  validation?: QuestionValidation;
+  grid?: QuestionGrid;
+  scale?: ScaleConfig;
+  originalTypeCode: number;
+  branching?: boolean;
+}
+
+export interface FormSection {
   id: string;
   title: string;
   description?: string;
-  questions: Question[];
 }
 
-export interface CallSession {
+export interface FormSubmissionMetadata {
+  action: string;
+  fvv: string;
+  partialResponse: string;
+  pageHistory: string;
+  fbzx: string;
+  submissionTimestamp: string;
+}
+
+export interface FormCapabilities {
+  supportsConversation: boolean;
+  supportsSubmission: boolean;
+  unsupportedReasons: string[];
+}
+
+export interface RawFormDebug {
+  questionItems: unknown[];
+}
+
+export interface NormalizedForm {
   id: string;
-  formId: string;
-  phoneNumber: string;
-  status: CallStatus;
-  responses: FormResponse[];
-  createdAt: Date;
-  updatedAt: Date;
+  title: string;
+  description?: string;
+  questions: NormalizedQuestion[];
+  sections: FormSection[];
+  submission: FormSubmissionMetadata;
+  capabilities: FormCapabilities;
+  unsupportedReason?: string;
+  debug?: RawFormDebug;
 }
 
-export type CallStatus =
-  | "pending"
-  | "calling"
-  | "in_progress"
-  | "confirming"
-  | "submitted"
-  | "failed"
-  | "cancelled";
-
-export interface FormResponse {
+export interface SavedAnswer {
   questionId: string;
-  answer: string;
-  confirmedAt?: Date;
+  value: string | string[] | null;
+  displayValue: string;
+  rawInput: string;
+  updatedAt: string;
 }
 
-export interface UserProfile {
+export interface FormSession {
   id: string;
-  phoneNumber: string;
-  commonResponses: Record<string, string>;
-  createdAt: Date;
+  formUrl: string;
+  form: NormalizedForm;
+  phase: SessionPhase;
+  currentQuestionIndex: number;
+  answersByQuestionId: Record<string, SavedAnswer>;
+  reviewSummary: string;
+  submissionState: "idle" | "submitting" | "submitted" | "failed";
+  unsupportedReason?: string;
+  liveResumptionHandle?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ToolResult {
+  ok: boolean;
+  phase: SessionPhase;
+  speakHint?: string;
+  data?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface ToolRequestPayload {
+  name: string;
+  args?: Record<string, unknown>;
+  toolCallId?: string;
+}
+
+export interface SessionOverview {
+  title: string;
+  description?: string;
+  totalQuestions: number;
+  answeredQuestions: number;
+  currentQuestionIndex: number;
+  phase: SessionPhase;
 }
