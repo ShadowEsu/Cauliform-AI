@@ -16,7 +16,71 @@ const SUPPORTED_SUBMISSION_KINDS = new Set<QuestionKind>([
   "checkbox",
   "date",
   "time",
+  "scale",
 ]);
+
+type ParseGoogleFormOptions = {
+  accessToken?: string;
+};
+
+type GoogleFormsApiForm = {
+  formId?: string;
+  info?: {
+    title?: string;
+    description?: string;
+  };
+  items?: GoogleFormsApiItem[];
+  responderUri?: string;
+};
+
+type GoogleFormsApiItem = {
+  itemId?: string;
+  title?: string;
+  description?: string;
+  questionItem?: {
+    question?: GoogleFormsApiQuestion;
+  };
+  questionGroupItem?: {
+    questions?: GoogleFormsApiQuestion[];
+    grid?: {
+      columns?: {
+        options?: Array<{ value?: string }>;
+        type?: string;
+      };
+    };
+  };
+  pageBreakItem?: Record<string, unknown>;
+  textItem?: Record<string, unknown>;
+  imageItem?: Record<string, unknown>;
+  videoItem?: Record<string, unknown>;
+};
+
+type GoogleFormsApiQuestion = {
+  questionId?: string;
+  required?: boolean;
+  textQuestion?: {
+    paragraph?: boolean;
+  };
+  choiceQuestion?: {
+    type?: string;
+    options?: Array<{ value?: string }>;
+  };
+  scaleQuestion?: {
+    low?: number;
+    high?: number;
+    lowLabel?: string;
+    highLabel?: string;
+  };
+  dateQuestion?: {
+    includeTime?: boolean;
+  };
+  timeQuestion?: {
+    duration?: boolean;
+  };
+  rowQuestion?: {
+    title?: string;
+  };
+};
 
 export function extractFormId(url: string): string | null {
   const patterns = [
@@ -48,16 +112,29 @@ export function isValidGoogleFormUrl(url: string): boolean {
   }
 }
 
-export async function parseGoogleForm(url: string): Promise<NormalizedForm> {
+export async function parseGoogleForm(
+  url: string,
+  options: ParseGoogleFormOptions = {}
+): Promise<NormalizedForm> {
+  const normalizedUrl = normalizeResponderFormUrl(url);
   const formId = extractFormId(url);
   if (!formId) {
     throw new Error("Invalid Google Form URL");
   }
 
-  const response = await fetch(url, {
+  if (options.accessToken) {
+    try {
+      return await parseGoogleFormViaApi(formId, options.accessToken);
+    } catch (error) {
+      console.warn("Falling back to HTML Google Form parsing:", error);
+    }
+  }
+
+  const response = await fetch(normalizedUrl, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
+    redirect: "follow",
   });
 
   if (!response.ok) {
@@ -65,7 +142,7 @@ export async function parseGoogleForm(url: string): Promise<NormalizedForm> {
   }
 
   const html = await response.text();
-  const submission = extractSubmissionMetadata(html);
+  const submission = extractSubmissionMetadata(html, normalizedUrl);
   const dataMatch = html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[[\s\S]*?\]);/);
 
   if (!dataMatch) {
@@ -99,14 +176,55 @@ export async function parseGoogleForm(url: string): Promise<NormalizedForm> {
       submission,
       capabilities,
       unsupportedReason: unsupportedReasons[0],
+      source: "html",
       debug: {
         questionItems: items,
+        source: "html",
       },
     };
   } catch (error) {
     console.error("Failed to normalize Google Form:", error);
     throw new Error("Failed to parse form data");
   }
+}
+
+async function parseGoogleFormViaApi(formId: string, accessToken: string): Promise<NormalizedForm> {
+  const response = await fetch(`https://forms.googleapis.com/v1/forms/${formId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google Forms API request failed (${response.status}).`);
+  }
+
+  const payload = (await response.json()) as GoogleFormsApiForm;
+  const parsed = normalizeGoogleFormsApiItems(payload.items ?? []);
+  const unsupportedReasons = collectApiUnsupportedReasons(parsed.questions);
+
+  const capabilities: FormCapabilities = {
+    supportsConversation: unsupportedReasons.length === 0,
+    supportsSubmission: false,
+    unsupportedReasons,
+  };
+
+  return {
+    id: payload.formId || formId,
+    title: payload.info?.title?.trim() || "Untitled Form",
+    description: payload.info?.description?.trim() || undefined,
+    questions: parsed.questions,
+    sections: parsed.sections,
+    submission: emptySubmissionMetadata(payload.responderUri),
+    capabilities,
+    unsupportedReason: unsupportedReasons[0],
+    source: "google_forms_api",
+    debug: {
+      questionItems: payload.items ?? [],
+      source: "google_forms_api",
+    },
+  };
 }
 
 function extractTitle(html: string, data: unknown[]): string {
@@ -210,6 +328,46 @@ function normalizeQuestionItems(items: unknown[]) {
     const scale = extractScale(groups);
     const grid = extractGrid(typeCode, groups);
 
+    if (kind === "grid" && grid) {
+      grid.rows.forEach((rowTitle, rowIndex) => {
+        questions.push({
+          id: `${questionId}:${rowIndex}`,
+          entryId: grid.rowEntryIds?.[rowIndex] || undefined,
+          kind: grid.kind === "checkbox" ? "checkbox" : "multiple_choice",
+          title: `${title} - ${rowTitle}`,
+          helpText: helpText || undefined,
+          required,
+          options: grid.columns,
+          sectionId: currentSectionId,
+          validation: {
+            type: "grid_row",
+            hint: `This row comes from the grid question "${title}".`,
+          },
+          originalTypeCode: typeCode,
+          branching,
+        });
+      });
+      continue;
+    }
+
+    if (kind === "grid") {
+      questions.push({
+        id: questionId,
+        kind: "static_text",
+        title,
+        helpText: helpText || undefined,
+        required: false,
+        sectionId: currentSectionId,
+        validation: {
+          type: "grid_unparsed",
+          hint: `The grid question "${title}" could not be normalized into row-level prompts.`,
+        },
+        originalTypeCode: typeCode,
+        branching,
+      });
+      continue;
+    }
+
     questions.push({
       id: questionId,
       entryId: entryId || undefined,
@@ -230,31 +388,321 @@ function normalizeQuestionItems(items: unknown[]) {
   return { questions, sections };
 }
 
-function extractSubmissionMetadata(html: string): FormSubmissionMetadata {
-  const action = extractAttr(html, /<form[^>]+action="([^"]+formResponse[^"]*)"/);
+function extractSubmissionMetadata(html: string, formUrl: string): FormSubmissionMetadata {
+  const action =
+    extractAttr(html, /<form[^>]+action="([^"]+formResponse[^"]*)"/) ||
+    extractAttr(html, /"([^\"]+formResponse[^\"]*)"/);
   const fvv = extractAttr(html, /name="fvv" value="([^"]*)"/);
   const partialResponse = decodeHtmlEntities(
     extractAttr(html, /name="partialResponse" value="([^"]*)"/)
   );
-  const pageHistory = extractAttr(html, /name="pageHistory" value="([^"]*)"/);
+  const pageHistory = extractAttr(html, /name="pageHistory" value="([^"]*)"/) || "0";
   const fbzx = extractAttr(html, /name="fbzx" value="([^"]*)"/);
   const submissionTimestamp = extractAttr(
     html,
     /name="submissionTimestamp" value="([^"]*)"/
   );
 
-  if (!action || !fvv || !partialResponse || !pageHistory || !fbzx || !submissionTimestamp) {
+  if (!action || !fvv || !fbzx) {
     throw new Error("Missing submission metadata");
   }
 
   return {
-    action,
+    action: absolutizeSubmissionUrl(action, formUrl),
     fvv,
-    partialResponse,
+    partialResponse: partialResponse || "[]",
     pageHistory,
     fbzx,
-    submissionTimestamp,
+    submissionTimestamp: submissionTimestamp || "",
   };
+}
+
+function emptySubmissionMetadata(action?: string): FormSubmissionMetadata {
+  return {
+    action: action || "",
+    fvv: "",
+    partialResponse: "",
+    pageHistory: "",
+    fbzx: "",
+    submissionTimestamp: "",
+  };
+}
+
+function normalizeGoogleFormsApiItems(items: GoogleFormsApiItem[]) {
+  const questions: NormalizedQuestion[] = [];
+  const sections: FormSection[] = [{ id: "section-root", title: "Start" }];
+  let currentSectionId = "section-root";
+
+  for (const item of items) {
+    const itemId = item.itemId || randomId("item");
+    const title = item.title?.trim() || "";
+    const helpText = item.description?.trim() || undefined;
+
+    if (item.pageBreakItem) {
+      currentSectionId = `section-${itemId}`;
+      sections.push({
+        id: currentSectionId,
+        title: title || "Section",
+        description: helpText,
+      });
+      continue;
+    }
+
+    if (item.textItem) {
+      questions.push({
+        id: itemId,
+        kind: "static_text",
+        title: title || "Information",
+        helpText,
+        required: false,
+        sectionId: currentSectionId,
+        originalTypeCode: 6,
+      });
+      continue;
+    }
+
+    if (item.imageItem) {
+      questions.push({
+        id: itemId,
+        kind: "image",
+        title: title || "Image",
+        helpText,
+        required: false,
+        sectionId: currentSectionId,
+        originalTypeCode: 11,
+      });
+      continue;
+    }
+
+    if (item.videoItem) {
+      questions.push({
+        id: itemId,
+        kind: "video",
+        title: title || "Video",
+        helpText,
+        required: false,
+        sectionId: currentSectionId,
+        originalTypeCode: 12,
+      });
+      continue;
+    }
+
+    const question = item.questionItem?.question;
+    if (question) {
+      questions.push(normalizeGoogleFormsApiQuestion(question, title, helpText, currentSectionId));
+      continue;
+    }
+
+    const questionGroup = item.questionGroupItem;
+    if (questionGroup?.questions?.length) {
+      const columns = questionGroup.grid?.columns;
+      for (const groupQuestion of questionGroup.questions) {
+        questions.push(
+          normalizeGoogleFormsApiGroupQuestion(
+            groupQuestion,
+            title || itemId,
+            helpText,
+            currentSectionId,
+            columns
+          )
+        );
+      }
+    }
+  }
+
+  return { questions, sections };
+}
+
+function normalizeGoogleFormsApiQuestion(
+  question: GoogleFormsApiQuestion,
+  title: string,
+  helpText: string | undefined,
+  sectionId: string
+): NormalizedQuestion {
+  if (question.textQuestion) {
+    return {
+      id: question.questionId || randomId("question"),
+      kind: question.textQuestion.paragraph ? "long_text" : "short_text",
+      title: title || "Untitled question",
+      helpText,
+      required: Boolean(question.required),
+      sectionId,
+      originalTypeCode: question.textQuestion.paragraph ? 1 : 0,
+    };
+  }
+
+  if (question.choiceQuestion) {
+    const type = question.choiceQuestion.type || "RADIO";
+    return {
+      id: question.questionId || randomId("question"),
+      kind: mapApiChoiceQuestionKind(type),
+      title: title || "Untitled question",
+      helpText,
+      required: Boolean(question.required),
+      options: (question.choiceQuestion.options ?? [])
+        .map((option) => option.value?.trim())
+        .filter((option): option is string => Boolean(option)),
+      sectionId,
+      originalTypeCode: mapApiChoiceQuestionTypeCode(type),
+    };
+  }
+
+  if (question.scaleQuestion) {
+    const low = question.scaleQuestion.low ?? 1;
+    const high = question.scaleQuestion.high ?? low;
+    const values = Array.from({ length: Math.max(high - low + 1, 1) }, (_, index) =>
+      String(low + index)
+    );
+
+    return {
+      id: question.questionId || randomId("question"),
+      kind: "scale",
+      title: title || "Untitled question",
+      helpText,
+      required: Boolean(question.required),
+      sectionId,
+      scale: {
+        values,
+        minLabel: question.scaleQuestion.lowLabel,
+        maxLabel: question.scaleQuestion.highLabel,
+      },
+      originalTypeCode: 5,
+    };
+  }
+
+  if (question.dateQuestion) {
+    return {
+      id: question.questionId || randomId("question"),
+      kind: question.dateQuestion.includeTime ? "time" : "date",
+      title: title || "Untitled question",
+      helpText,
+      required: Boolean(question.required),
+      sectionId,
+      originalTypeCode: question.dateQuestion.includeTime ? 10 : 9,
+    };
+  }
+
+  if (question.timeQuestion) {
+    return {
+      id: question.questionId || randomId("question"),
+      kind: "time",
+      title: title || "Untitled question",
+      helpText,
+      required: Boolean(question.required),
+      sectionId,
+      originalTypeCode: 10,
+      validation: question.timeQuestion.duration
+        ? { type: "duration", hint: "Duration answers are not supported yet." }
+        : undefined,
+    };
+  }
+
+  return {
+    id: question.questionId || randomId("question"),
+    kind: "static_text",
+    title: title || "Unsupported question",
+    helpText,
+    required: false,
+    sectionId,
+    originalTypeCode: -1,
+  };
+}
+
+function normalizeGoogleFormsApiGroupQuestion(
+  question: GoogleFormsApiQuestion,
+  title: string,
+  helpText: string | undefined,
+  sectionId: string,
+  columns?: {
+    options?: Array<{ value?: string }>;
+    type?: string;
+  }
+): NormalizedQuestion {
+  return {
+    id: question.questionId || randomId("group-question"),
+    kind: "grid",
+    title: question.rowQuestion?.title?.trim() || title,
+    helpText,
+    required: Boolean(question.required),
+    sectionId,
+    grid: {
+      kind: columns?.type === "CHECK_BOX" ? "checkbox" : "multiple_choice",
+      rows: [question.rowQuestion?.title?.trim() || title],
+      columns: (columns?.options ?? [])
+        .map((option) => option.value?.trim())
+        .filter((option): option is string => Boolean(option)),
+    },
+    originalTypeCode: 7,
+  };
+}
+
+function mapApiChoiceQuestionKind(type: string): QuestionKind {
+  switch (type) {
+    case "DROP_DOWN":
+      return "dropdown";
+    case "CHECK_BOX":
+      return "checkbox";
+    case "RADIO":
+    default:
+      return "multiple_choice";
+  }
+}
+
+function mapApiChoiceQuestionTypeCode(type: string) {
+  switch (type) {
+    case "DROP_DOWN":
+      return 3;
+    case "CHECK_BOX":
+      return 4;
+    case "RADIO":
+    default:
+      return 2;
+  }
+}
+
+function collectApiUnsupportedReasons(questions: NormalizedQuestion[]) {
+  const reasons = new Set<string>();
+
+  if (!questions.length) {
+    reasons.add("No supported questions were found in this form.");
+  }
+
+  for (const question of questions) {
+    if (!SUPPORTED_SUBMISSION_KINDS.has(question.kind)) {
+      reasons.add(
+        "Authenticated Forms API reading is enabled, but submission for this form still needs an Apps Script or public-form fallback."
+      );
+      break;
+    }
+  }
+
+  return Array.from(reasons);
+}
+
+function randomId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeResponderFormUrl(url: string) {
+  const parsed = new URL(url);
+
+  if (parsed.pathname.endsWith("/viewform")) {
+    return parsed.toString();
+  }
+
+  if (parsed.pathname.includes("/forms/d/e/") || parsed.pathname.includes("/forms/d/")) {
+    parsed.pathname = parsed.pathname.replace(/\/(edit|prefill|startresponse|viewanalytics).*$/, "/viewform");
+  }
+
+  return parsed.toString();
+}
+
+function absolutizeSubmissionUrl(action: string, formUrl: string) {
+  try {
+    return new URL(action, formUrl).toString();
+  } catch {
+    return action;
+  }
 }
 
 function extractAttr(html: string, pattern: RegExp): string {
@@ -289,14 +737,8 @@ function collectUnsupportedReasons({
     if (question.kind === "file_upload") {
       reasons.add("File upload questions are not supported.");
     }
-    if (question.kind === "grid") {
-      reasons.add("Grid questions are not supported in this voice flow.");
-    }
-    if (question.kind === "scale") {
-      reasons.add("Linear scale questions are not supported in this voice flow.");
-    }
-    if (question.branching) {
-      reasons.add("Section branching is not supported.");
+    if (question.originalTypeCode === 7 && question.validation?.type === "grid_unparsed") {
+      reasons.add("This grid question could not be normalized for voice flow.");
     }
     if (
       ![
@@ -307,6 +749,7 @@ function collectUnsupportedReasons({
         "checkbox",
         "date",
         "time",
+        "scale",
         "section",
         "static_text",
         "image",
@@ -409,25 +852,54 @@ function extractGrid(typeCode: number, groups: unknown[]): QuestionGrid | null {
     return null;
   }
 
-  const columns = Array.isArray(first[1])
-    ? (first[1] as unknown[]).map((value) => cleanText(Array.isArray(value) ? value[0] : value)).filter(Boolean)
-    : [];
-  const rows = groups
-    .map((group) => cleanText(Array.isArray(group) ? group[3] : undefined))
-    .filter(Boolean);
+  const columns = extractGridColumns(groups);
+  const rowEntryIds = groups.map((group) => (Array.isArray(group) ? String(group[0] ?? "") : ""));
+  const rows = groups.map((group, index) => {
+    const rowLabel = cleanText(Array.isArray(group) ? group[3] : undefined);
+    if (rowLabel) {
+      return rowLabel;
+    }
+    return rowEntryIds[index] ? `Row ${index + 1}` : "";
+  });
   const limitOnePerColumn = Array.isArray(first[11]) ? Boolean((first[11] as unknown[])[0]) : false;
   const kind = Array.isArray(first[11]) && (first[11] as unknown[])[0] === 1 ? "checkbox" : "multiple_choice";
 
-  if (rows.length === 0 || columns.length === 0) {
+  const normalizedRows = rows.filter((row, index) => row && rowEntryIds[index]);
+  const normalizedEntryIds = rowEntryIds.filter((entryId, index) => Boolean(entryId && rows[index]));
+
+  if (normalizedEntryIds.length === 0 || columns.length === 0) {
     return null;
   }
 
   return {
     kind,
-    rows,
+    rows: normalizedRows,
     columns,
+    rowEntryIds: normalizedEntryIds,
     limitOnePerColumn,
   };
+}
+
+function extractGridColumns(groups: unknown[]) {
+  const seen = new Set<string>();
+  const columns: string[] = [];
+
+  for (const group of groups) {
+    if (!Array.isArray(group) || !Array.isArray(group[1])) {
+      continue;
+    }
+
+    for (const value of group[1] as unknown[]) {
+      const label = cleanText(Array.isArray(value) ? value[0] : value);
+      if (!label || seen.has(label)) {
+        continue;
+      }
+      seen.add(label);
+      columns.push(label);
+    }
+  }
+
+  return columns;
 }
 
 function extractValidation(typeCode: number, groups: unknown[]) {

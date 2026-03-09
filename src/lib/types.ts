@@ -30,6 +30,7 @@ export interface QuestionGrid {
   kind: "multiple_choice" | "checkbox";
   rows: string[];
   columns: string[];
+  rowEntryIds?: string[];
   limitOnePerColumn?: boolean;
 }
 
@@ -78,6 +79,7 @@ export interface FormCapabilities {
 
 export interface RawFormDebug {
   questionItems: unknown[];
+  source?: "html" | "google_forms_api";
 }
 
 export interface NormalizedForm {
@@ -89,6 +91,7 @@ export interface NormalizedForm {
   submission: FormSubmissionMetadata;
   capabilities: FormCapabilities;
   unsupportedReason?: string;
+  source?: "html" | "google_forms_api";
   debug?: RawFormDebug;
 }
 

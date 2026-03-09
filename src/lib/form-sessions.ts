@@ -4,8 +4,11 @@ import type { FormSession, NormalizedForm, SavedAnswer } from "@/lib/types";
 
 const sessions = new Map<string, FormSession>();
 
-export async function createFormSession(formUrl: string): Promise<FormSession> {
-  const form = await parseGoogleForm(formUrl);
+export async function createFormSession(
+  formUrl: string,
+  options?: { accessToken?: string }
+): Promise<FormSession> {
+  const form = await parseGoogleForm(formUrl, options);
   const sessionId = uuidv4();
   const now = new Date().toISOString();
 

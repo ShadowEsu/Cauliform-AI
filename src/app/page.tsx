@@ -19,7 +19,7 @@ const LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 const FORM_AGENT_TOOLS: FunctionDeclaration[] = [
   {
     name: "get_session_overview",
-    description: "Get the form title, question count, and current phase before beginning.",
+    description: "Use first to understand the form, overall progress, and how to introduce it conversationally.",
     parametersJsonSchema: {
       type: "object",
       properties: {},
@@ -28,7 +28,7 @@ const FORM_AGENT_TOOLS: FunctionDeclaration[] = [
   },
   {
     name: "get_current_question",
-    description: "Get the next question the agent should ask right now.",
+    description: "Get the next question to ask, including helpful context and progress information.",
     parametersJsonSchema: {
       type: "object",
       properties: {},
@@ -37,13 +37,13 @@ const FORM_AGENT_TOOLS: FunctionDeclaration[] = [
   },
   {
     name: "save_answer",
-    description: "Validate and save the user's answer for the current question.",
+    description: "Validate and save the user's answer for the current question, then move the conversation forward.",
     parametersJsonSchema: {
       type: "object",
       properties: {
         answer: {
           type: "string",
-          description: "The user's answer in concise normalized text.",
+          description: "The user's answer in concise normalized text. Keep the meaning, not filler words.",
         },
       },
       required: ["answer"],
@@ -52,7 +52,7 @@ const FORM_AGENT_TOOLS: FunctionDeclaration[] = [
   },
   {
     name: "review_answers",
-    description: "Get a brief review summary of all captured answers before submission.",
+    description: "Get a concise review summary to read back naturally before submission.",
     parametersJsonSchema: {
       type: "object",
       properties: {},
@@ -61,17 +61,17 @@ const FORM_AGENT_TOOLS: FunctionDeclaration[] = [
   },
   {
     name: "change_answer",
-    description: "Update one previously captured answer during the review step.",
+    description: "Update one previously captured answer during the review step if the user wants to change something.",
     parametersJsonSchema: {
       type: "object",
       properties: {
         questionId: {
           type: "string",
-          description: "The question id to update.",
+          description: "The question id to update from the review summary.",
         },
         answer: {
           type: "string",
-          description: "The replacement answer.",
+          description: "The replacement answer in concise normalized text.",
         },
       },
       required: ["questionId", "answer"],
@@ -80,7 +80,7 @@ const FORM_AGENT_TOOLS: FunctionDeclaration[] = [
   },
   {
     name: "submit_form",
-    description: "Submit the completed Google Form after the user confirms.",
+    description: "Submit the completed form only after the user clearly confirms they are ready.",
     parametersJsonSchema: {
       type: "object",
       properties: {},
@@ -96,6 +96,7 @@ type ParsedFormSummary = {
   title: string;
   description?: string;
   questionCount: number;
+  source?: "html" | "google_forms_api";
   capabilities: {
     supportsConversation: boolean;
     supportsSubmission: boolean;
@@ -110,6 +111,30 @@ type ToolResult = {
   speakHint?: string;
   data?: Record<string, unknown>;
   error?: string;
+};
+
+type AuthSession = {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    picture?: string;
+  };
+  expiresAt: number;
+};
+
+type GoogleApiTestResult = {
+  ok: boolean;
+  email?: string;
+  form?: {
+    id?: string;
+    title?: string;
+    description?: string;
+    responderUri?: string;
+    itemCount?: number;
+  } | null;
+  error?: string;
+  details?: unknown;
 };
 
 function parseSampleRate(mimeType?: string): number {
@@ -188,10 +213,16 @@ function buildSystemInstruction(): string {
     "Always use tools to inspect form state, fetch the current question, save answers, review answers, and submit the form.",
     "Never invent questions, options, validations, or submission results.",
     "Ask exactly one question at a time.",
-    "Use concise spoken language and short transitions.",
+    "Make the interaction feel like a guided conversation, not like reading a form line by line.",
+    "Use concise spoken language, short transitions, and gentle acknowledgements after answers.",
+    "Do not mention internal ids, tool names, or technical details.",
+    "If a question is optional, you may briefly mention that the user can skip it.",
+    "Do not dump all answer choices up front unless the user asks or the tool hint says the options must be offered.",
+    "When moving between questions, use light conversational bridges so the flow feels natural.",
     "If a tool returns an error, explain it briefly and ask one focused follow-up.",
     "When all answers are captured, call review_answers, summarize briefly, and ask whether to submit or change anything.",
     "Only call submit_form after the user clearly confirms submission.",
+    "After submission, close warmly and briefly.",
   ].join("\n");
 }
 
@@ -201,6 +232,10 @@ export default function Home() {
   const [formUrl, setFormUrl] = useState("");
   const [parsedForm, setParsedForm] = useState<ParsedFormSummary | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [authBusy, setAuthBusy] = useState(true);
+  const [googleApiTest, setGoogleApiTest] = useState<GoogleApiTestResult | null>(null);
+  const [googleApiBusy, setGoogleApiBusy] = useState(false);
 
   const sessionRef = useRef<Session | null>(null);
   const browserStreamRef = useRef<MediaStream | null>(null);
@@ -600,10 +635,103 @@ export default function Home() {
   }, [cleanup]);
 
   useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        const payload = (await response.json()) as {
+          authenticated: boolean;
+          session?: AuthSession | null;
+        };
+        setAuthSession(payload.session ?? null);
+      } catch (sessionError) {
+        console.error("Failed to load auth session:", sessionError);
+      } finally {
+        setAuthBusy(false);
+      }
+    };
+
+    void loadSession();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("authError");
+    const authSuccess = params.get("auth");
+
+    if (authError) {
+      setError(decodeURIComponent(authError));
+    }
+
+    if (authSuccess === "success") {
+      void fetch("/api/auth/session", { cache: "no-store" })
+        .then((response) => response.json())
+        .then((payload: { session?: AuthSession | null }) => {
+          setAuthSession(payload.session ?? null);
+          setError("");
+        })
+        .catch((sessionError) => {
+          console.error("Failed to refresh auth session:", sessionError);
+        });
+    }
+
+    if (authError || authSuccess) {
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
+  useEffect(() => {
     return () => {
       cleanup();
     };
   }, [cleanup]);
+
+  const signOut = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to sign out.");
+      }
+
+      setAuthSession(null);
+      setGoogleApiTest(null);
+    } catch (signOutError) {
+      setError(signOutError instanceof Error ? signOutError.message : "Failed to sign out.");
+    }
+  }, []);
+
+  const testGoogleApiAccess = useCallback(async () => {
+    setGoogleApiBusy(true);
+    setGoogleApiTest(null);
+
+    try {
+      const response = await fetch("/api/auth/google-test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({ formUrl: formUrl.trim() }),
+      });
+      const payload = (await response.json()) as GoogleApiTestResult;
+      setGoogleApiTest(payload);
+
+      if (!response.ok && payload.error) {
+        setError(payload.error);
+      } else {
+        setError("");
+      }
+    } catch (testError) {
+      setGoogleApiTest({
+        ok: false,
+        error: testError instanceof Error ? testError.message : "Google API test failed.",
+      });
+    } finally {
+      setGoogleApiBusy(false);
+    }
+  }, [formUrl]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-4">
@@ -620,6 +748,100 @@ export default function Home() {
           <p className="text-gray-600 text-center mt-2">
             Tool-driven Gemini Live agent for public Google Forms
           </p>
+        </div>
+
+        <div className="border border-sky-200 rounded-xl p-4 bg-sky-50 shadow-sm space-y-3 mb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-sky-950">Google account</p>
+              {authSession ? (
+                <div className="text-sm text-sky-900">
+                  <p>{authSession.user.name}</p>
+                  <p className="text-sky-700">{authSession.user.email}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-sky-800">
+                  Optional owner-mode sign-in for future Google-managed form workflows.
+                </p>
+              )}
+            </div>
+
+            {authSession?.user.picture ? (
+              <Image
+                src={authSession.user.picture}
+                alt={authSession.user.name}
+                width={40}
+                height={40}
+                className="rounded-full"
+              />
+            ) : null}
+          </div>
+
+          {authSession ? (
+            <>
+              <button
+                type="button"
+                onClick={testGoogleApiAccess}
+                disabled={googleApiBusy}
+                className="w-full py-3 px-4 bg-sky-600 text-white font-medium rounded-lg hover:bg-sky-700 transition disabled:opacity-60"
+              >
+                {googleApiBusy ? "Testing Owner API..." : "Test Owner-Mode Forms API"}
+              </button>
+
+              {googleApiTest ? (
+                <div
+                  className={`rounded-lg border p-3 text-sm ${
+                    googleApiTest.ok
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                      : "border-red-200 bg-red-50 text-red-900"
+                  }`}
+                >
+                  {googleApiTest.ok ? (
+                    <>
+                      <p>Signed in as {googleApiTest.email}</p>
+                      {googleApiTest.form ? (
+                        <p className="mt-1">
+                          Form: {googleApiTest.form.title} ({googleApiTest.form.id})
+                        </p>
+                      ) : null}
+                      {googleApiTest.form ? (
+                        <p className="mt-1">Items returned: {googleApiTest.form.itemCount ?? 0}</p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <p>{googleApiTest.error || "Owner-mode Google Forms API test failed."}</p>
+                      <p className="mt-1 text-xs opacity-80">
+                        This is expected for forms you can only respond to and do not own or edit.
+                      </p>
+                      {googleApiTest.details ? (
+                        <pre className="mt-2 overflow-x-auto rounded bg-white/70 p-2 text-xs whitespace-pre-wrap break-words">
+                          {JSON.stringify(googleApiTest.details, null, 2)}
+                        </pre>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={signOut}
+                className="w-full py-3 px-4 bg-sky-950 text-white font-medium rounded-lg hover:bg-sky-900 transition"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <a
+              href="/api/auth/google"
+              className={`block w-full py-3 px-4 text-center bg-sky-600 text-white font-medium rounded-lg hover:bg-sky-700 transition ${
+                authBusy ? "pointer-events-none opacity-60" : ""
+              }`}
+            >
+              {authBusy ? "Checking session..." : "Sign In With Google"}
+            </a>
+          )}
         </div>
 
         <div className="border border-amber-200 rounded-xl p-5 bg-white shadow-sm space-y-4">
@@ -659,6 +881,14 @@ export default function Home() {
                 <strong>{parsedForm.title}</strong>
               </p>
               <p>{parsedForm.questionCount} supported question(s) detected.</p>
+              <p className="mt-1 text-xs opacity-80">
+                Source: {parsedForm.source === "google_forms_api" ? "Google Forms API" : "Public form HTML"}
+              </p>
+              {!parsedForm.capabilities.supportsSubmission ? (
+                <p className="mt-1">
+                  This app currently treats public responder access as the default path for reading and submission.
+                </p>
+              ) : null}
               {!parsedForm.capabilities.supportsConversation && parsedForm.unsupportedReason ? (
                 <p className="mt-1">{parsedForm.unsupportedReason}</p>
               ) : null}

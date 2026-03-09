@@ -43,12 +43,15 @@ export async function POST(request: Request) {
         ).length,
         capabilities: formData.capabilities,
         unsupportedReason: formData.unsupportedReason,
+        source: formData.source,
       },
     });
   } catch (error) {
     console.error("Error parsing form:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to parse form";
     return NextResponse.json(
-      { error: "Failed to parse form" },
+      { error: message },
       { status: 500 }
     );
   }

@@ -56,10 +56,11 @@ export async function handleToolRequest(
 
 function getSessionOverview(session: FormSession): ToolResult {
   const answeredQuestions = countAnsweredQuestions(session);
+  const actionableQuestions = getActionableQuestions(session);
   const overview: SessionOverview = {
     title: session.form.title,
     description: session.form.description,
-    totalQuestions: getActionableQuestions(session).length,
+    totalQuestions: actionableQuestions.length,
     answeredQuestions,
     currentQuestionIndex: session.currentQuestionIndex,
     phase: session.phase,
@@ -68,8 +69,14 @@ function getSessionOverview(session: FormSession): ToolResult {
   return {
     ok: true,
     phase: session.phase,
-    speakHint: `The form is ${session.form.title}. There are ${overview.totalQuestions} answerable questions.`,
-    data: overview as unknown as Record<string, unknown>,
+    speakHint: `Briefly orient the user to ${session.form.title} and start naturally. There are ${overview.totalQuestions} questions to cover.`,
+    data: {
+      ...(overview as unknown as Record<string, unknown>),
+      nextStep:
+        actionableQuestions.length > answeredQuestions
+          ? "Introduce the form briefly, then ask the next question."
+          : "Move into a quick review and ask for submission confirmation.",
+    },
   };
 }
 
@@ -80,7 +87,8 @@ function getCurrentQuestion(session: FormSession): ToolResult {
     return {
       ok: true,
       phase: "review",
-      speakHint: "All questions are complete. Review the answers and ask for final confirmation.",
+      speakHint:
+        "All questions are complete. Give a short, calm recap and ask whether the user wants to submit or change anything.",
       data: {
         complete: true,
       },
@@ -92,7 +100,7 @@ function getCurrentQuestion(session: FormSession): ToolResult {
     phase: session.phase,
     speakHint: buildQuestionSpeakHint(current),
     data: {
-      question: serializeQuestion(current, session.currentQuestionIndex, session.form.questions.length),
+      question: serializeQuestion(current, session),
     },
   };
 }
@@ -150,15 +158,15 @@ async function saveAnswer(
     phase: finalSession.phase,
     speakHint:
       finalSession.phase === "review"
-        ? "All answers are captured. Briefly review them and ask whether to submit or edit anything."
-        : `Saved. ${nextQuestion ? buildQuestionSpeakHint(nextQuestion) : "Move to review."}`,
+        ? "All answers are captured. Briefly recap the important answers and ask whether the user wants to submit or change anything."
+        : `Acknowledge the answer naturally, then continue. ${nextQuestion ? buildQuestionSpeakHint(nextQuestion) : "Move to review."}`,
     data: {
       savedAnswer: {
         questionId: current.id,
         displayValue: savedAnswer.displayValue,
       },
       nextQuestion: nextQuestion
-        ? serializeQuestion(nextQuestion, nextIndex, finalSession.form.questions.length)
+        ? serializeQuestion(nextQuestion, finalSession)
         : null,
       reviewSummary: finalSession.reviewSummary || undefined,
     },
@@ -175,7 +183,8 @@ async function reviewAnswers(session: FormSession): Promise<ToolResult> {
   return {
     ok: true,
     phase: updated.phase,
-    speakHint: "Read back the answers briefly and ask whether to submit or change anything.",
+    speakHint:
+      "Read back the answers briefly in conversational language, not like a checklist, then ask whether the user wants to submit or change anything.",
     data: {
       reviewSummary: summary,
     },
@@ -227,7 +236,8 @@ async function changeAnswer(
   return {
     ok: true,
     phase: updated.phase,
-    speakHint: "The answer was updated. Continue the review and ask if anything else should change.",
+    speakHint:
+      "Confirm the change naturally, continue the review, and ask if anything else should change before submission.",
     data: {
       updatedQuestionId: question.id,
       reviewSummary: summary,
@@ -241,6 +251,16 @@ async function submitForm(session: FormSession): Promise<ToolResult> {
       ok: true,
       phase: "submitted",
       speakHint: "The form has already been submitted.",
+    };
+  }
+
+  if (!session.form.capabilities.supportsSubmission) {
+    return {
+      ok: false,
+      phase: session.phase,
+      error: "This form can be read through Google APIs, but submission is not wired for this form yet.",
+      speakHint:
+        "This form was read through Google APIs, but automatic submission is not available for it yet.",
     };
   }
 
@@ -275,7 +295,8 @@ async function submitForm(session: FormSession): Promise<ToolResult> {
     return {
       ok: true,
       phase: "submitted",
-      speakHint: "The form is submitted. Tell the user it is done and thank them.",
+      speakHint:
+        "Tell the user the form has been submitted, thank them, and end the conversation warmly.",
       data: {
         submitted: true,
       },
@@ -290,7 +311,8 @@ async function submitForm(session: FormSession): Promise<ToolResult> {
       ok: false,
       phase: "review",
       error: error instanceof Error ? error.message : "Failed to submit the form.",
-      speakHint: "Submission failed. Apologize briefly and tell the user the form could not be submitted yet.",
+      speakHint:
+        "Apologize briefly, explain that submission did not go through yet, and ask whether the user wants to try again.",
     };
   }
 }
@@ -337,7 +359,10 @@ function getQuestionAtIndex(session: FormSession, index: number) {
   return null;
 }
 
-function serializeQuestion(question: NormalizedQuestion, index: number, total: number) {
+function serializeQuestion(question: NormalizedQuestion, session: FormSession) {
+  const actionableQuestions = getActionableQuestions(session);
+  const position = actionableQuestions.findIndex((item) => item.id === question.id);
+
   return {
     id: question.id,
     title: question.title,
@@ -345,8 +370,10 @@ function serializeQuestion(question: NormalizedQuestion, index: number, total: n
     kind: question.kind,
     required: question.required,
     options: question.options,
-    index,
-    total,
+    progress: {
+      current: position >= 0 ? position + 1 : undefined,
+      total: actionableQuestions.length,
+    },
   };
 }
 
@@ -354,10 +381,22 @@ function buildQuestionSpeakHint(question: NormalizedQuestion) {
   const requirement = question.required ? "required" : "optional";
   const optionHint =
     question.options && question.options.length > 0
-      ? ` Offer these choices exactly: ${question.options.join(", ")}.`
+      ? ` Offer these choices exactly if needed: ${question.options.join(", ")}.`
+      : "";
+  const helpHint = question.helpText ? ` Use this context if it helps: ${question.helpText}.` : "";
+  const scaleHint =
+    question.kind === "scale" && question.scale
+      ? ` Ask for one number from ${question.scale.values[0]} to ${question.scale.values[question.scale.values.length - 1]}.${
+          question.scale.minLabel || question.scale.maxLabel
+            ? ` The ends are labeled ${question.scale.minLabel || question.scale.values[0]} and ${
+                question.scale.maxLabel ||
+                question.scale.values[question.scale.values.length - 1]
+              }.`
+            : ""
+        }`
       : "";
 
-  return `Ask: ${question.title}. This is ${requirement}.${optionHint}`;
+  return `Ask the next question naturally: ${question.title}. This is ${requirement}.${helpHint}${optionHint}${scaleHint}`;
 }
 
 function countAnsweredQuestions(session: FormSession) {
@@ -399,6 +438,8 @@ function normalizeAnswer(question: NormalizedQuestion, rawAnswer: string) {
       return matchSingleOption(question, trimmed);
     case "checkbox":
       return matchMultipleOptions(question, trimmed);
+    case "scale":
+      return normalizeScaleAnswer(question, trimmed);
     case "date":
       return normalizeDateAnswer(trimmed);
     case "time":
@@ -517,5 +558,28 @@ function normalizeTimeAnswer(answer: string) {
   return {
     value,
     displayValue: value,
+  };
+}
+
+function normalizeScaleAnswer(question: NormalizedQuestion, answer: string) {
+  const scaleValues = question.scale?.values ?? [];
+  if (scaleValues.length === 0) {
+    return {
+      error: `The scale for "${question.title}" could not be read clearly.`,
+    };
+  }
+
+  const numberMatch = answer.match(/\d+/);
+  const normalized = numberMatch?.[0] ?? answer.trim();
+
+  if (!scaleValues.includes(normalized)) {
+    return {
+      error: `Use one number from ${scaleValues[0]} to ${scaleValues[scaleValues.length - 1]} for "${question.title}".`,
+    };
+  }
+
+  return {
+    value: normalized,
+    displayValue: normalized,
   };
 }
