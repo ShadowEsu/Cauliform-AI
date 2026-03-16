@@ -40,6 +40,8 @@ The system connects the user's browser to **Gemini Live API** via WebSocket for 
 
 When a user fills out Form A and provides their name and email, those fields are automatically saved. When they later fill out Form B (a completely different form), the agent already knows their info and says *"I have your name as Chinat Yu — is that still correct?"*
 
+**Confirmation step:** Before any form is submitted, the agent summarizes all collected responses and explicitly asks *"Should I submit this form?"* The form is only submitted when the user confirms with "yes", "submit", or "go ahead." This is enforced at two levels — the Gemini system prompt requires confirmation before calling the `submit_form` tool, and the frontend only triggers the submission API when the tool call is received. No form is ever submitted without the user's explicit verbal approval.
+
 **TinyFish** (AI browser agent) handles the actual Google Form submission by automating the browser to fill and submit the form, keeping the form owner's workflow untouched.
 
 ## The Problem
