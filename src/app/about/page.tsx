@@ -34,6 +34,22 @@ export default function AboutPage() {
           </Link>
         </div>
 
+        {/* Demo Video */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-stone-800 mb-3">Demo</h2>
+          <div className="rounded-xl overflow-hidden border border-stone-200">
+            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+              <iframe
+                src="https://www.youtube.com/embed/N7ZOtOqVaf8"
+                title="Cauliform Demo"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 w-full h-full"
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Problem */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-stone-800 mb-2">
