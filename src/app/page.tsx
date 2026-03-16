@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
 import { createFormAgentPrompt, getFormTools } from "@/lib/prompts";
 import type { FormData } from "@/lib/types";
@@ -23,6 +24,7 @@ export default function HomePage() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
+  const [showTestGuide, setShowTestGuide] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "submitting" | "success" | "failed">("idle");
   const [agentStreamUrl, setAgentStreamUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -256,6 +258,69 @@ export default function HomePage() {
               </svg>
               Start Voice Conversation
             </button>
+
+            {/* How to test it */}
+            <button
+              onClick={() => setShowTestGuide(!showTestGuide)}
+              className={`w-full text-xs px-3 py-2 rounded-xl transition ${showTestGuide ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+            >
+              {showTestGuide ? "Hide" : "How to test it"}
+            </button>
+
+            {showTestGuide && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm text-sm text-gray-700 space-y-3">
+                <div className="flex gap-3">
+                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                  <div>
+                    <p className="font-medium">Copy this test form URL:</p>
+                    <button
+                      onClick={() => {
+                        const url = "https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform";
+                        navigator.clipboard.writeText(url);
+                        setFormUrl(url);
+                      }}
+                      className="mt-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition text-gray-600 font-mono break-all leading-relaxed text-left"
+                    >
+                      https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform
+                      <span className="ml-2 text-amber-600">(tap to copy)</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                  <p className="font-medium">Click &quot;Start Voice Conversation&quot; and allow mic access</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                  <div>
+                    <p className="font-medium">Answer 3 questions by voice:</p>
+                    <ul className="text-xs text-gray-500 mt-1 space-y-0.5 list-disc list-inside">
+                      <li>What&apos;s your name?</li>
+                      <li>How old are you?</li>
+                      <li>What grade? (Freshman/Sophomore/Junior/Senior)</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                  <p className="font-medium">Say &quot;yes&quot; when Cauli asks to confirm &amp; submit</p>
+                </div>
+                <div className="flex gap-3">
+                  <span className="shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                  <div>
+                    <p className="font-medium">Verify your submission:</p>
+                    <a
+                      href="https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s/edit?usp=sharing"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition text-amber-700 font-mono break-all leading-relaxed block"
+                    >
+                      https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -398,9 +463,12 @@ export default function HomePage() {
         )}
 
         {/* Footer */}
-        <p className="text-center text-gray-400 text-xs mt-8">
-          Powered by Gemini Live API
-        </p>
+        <div className="text-center text-gray-400 text-xs mt-8 space-y-1">
+          <p>Powered by Gemini Live API</p>
+          <Link href="/about" className="text-amber-600 hover:text-amber-800 underline">
+            About Cauliform
+          </Link>
+        </div>
       </div>
     </div>
   );
