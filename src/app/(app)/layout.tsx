@@ -94,29 +94,55 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   prestonjaysusanto@gmail.com
                 </a>
               </p>
-              <div className="rounded-xl border border-rose-500/25 bg-gradient-to-b from-rose-500/15 to-transparent p-3">
+              <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-b from-rose-600/40 via-rose-600/10 to-transparent p-4 shadow-[0_0_40px_rgba(244,63,94,0.45)]">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold tracking-[0.2em] text-rose-200 uppercase">
-                    Cauliform Pro
+                  <div>
+                    <div className="text-[10px] font-semibold tracking-[0.3em] text-rose-100 uppercase">
+                      Cauliform Pro
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-zinc-50">
+                      For solo builders & students
+                    </div>
                   </div>
-                  <div className="text-[10px] font-semibold text-zinc-200 bg-white/10 border border-white/10 rounded-full px-2 py-0.5">
-                    $23.99/mo
+                  <div className="text-right">
+                    <div className="text-xs font-semibold text-zinc-100 bg-black/20 border border-white/20 rounded-full px-3 py-1">
+                      $23.99 / mo
+                    </div>
+                    <div className="mt-1 text-[10px] text-rose-100/80">
+                      Multi‑agent calls
+                    </div>
                   </div>
                 </div>
-                <div className="mt-2 text-[11px] text-zinc-300 leading-snug">
-                  Multi-agent calling, active recall memory, and smarter session analytics.
-                </div>
-                <ul className="mt-2 space-y-1 text-[11px] text-zinc-300">
-                  <li>• Multiple live agents</li>
-                  <li>• Active recall + autofill</li>
+                <ul className="mt-3 space-y-1.5 text-[11px] text-rose-50">
+                  <li>• Multiple live agents per survey</li>
+                  <li>• Active recall memory across forms</li>
                   <li>• Reliability & retry controls</li>
                 </ul>
                 <button
                   type="button"
-                  className="mt-3 w-full rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-rose-500"
+                  className="mt-3 w-full rounded-lg bg-zinc-950/80 px-3 py-1.5 text-[11px] font-semibold text-rose-100 border border-white/30 hover:bg-zinc-900"
                 >
                   Upgrade to Cauliform Pro
                 </button>
+                <div className="mt-3 grid gap-2 text-[11px] text-rose-50/90">
+                  <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2">
+                    <div className="font-semibold text-emerald-100">
+                      Cauliform Education
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-emerald-50/90">
+                      Free for 1 year for approved schools, classes, and non-profits.
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2">
+                    <div className="font-semibold text-sky-100">
+                      Cauliform AI Business
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-sky-50/90">
+                      Access to advanced multi‑agent sessions and priority support —{" "}
+                      <span className="font-semibold">$200 / mo</span>.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
