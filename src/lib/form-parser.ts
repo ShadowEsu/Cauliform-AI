@@ -126,21 +126,19 @@ function parseFormDataStructure(data: any[]): Question[] {
   for (const item of questionData) {
     if (!Array.isArray(item) || item.length < 2) continue;
 
-    const questionInfo = item[1];
-    if (!Array.isArray(questionInfo)) continue;
-
+    // Each item is: [id, title, description, typeCode, [[entryId, options, ...]], ...]
     const question: Question = {
       id: String(item[0] || Math.random()),
-      title: String(questionInfo[0] || ""),
-      type: mapQuestionType(Number(questionInfo[3]) || 0),
-      required: Boolean(questionInfo[2]),
+      title: String(item[1] || ""),
+      type: mapQuestionType(Number(item[3]) || 0),
+      required: Boolean(item[4]?.[0]?.[2]),
       options: [],
     };
 
-    // Extract options for multiple choice questions
-    const optionsData = questionInfo[4]?.[0]?.[1] as any[] | undefined;
-    if (Array.isArray(optionsData)) {
-      question.options = optionsData
+    // Extract options for multiple choice / checkbox / dropdown questions
+    const choiceData = item[4]?.[0]?.[1] as any[] | undefined;
+    if (Array.isArray(choiceData)) {
+      question.options = choiceData
         .filter(Array.isArray)
         .map((opt: any) => String(opt[0] || ""));
     }

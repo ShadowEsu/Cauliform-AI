@@ -20,7 +20,10 @@ export default function TestPage() {
   const [parseError, setParseError] = useState("");
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [error, setError] = useState("");
+  const [logs, setLogs] = useState<string[]>([]);
+  const [showLogs, setShowLogs] = useState(true);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const logsRef = useRef<HTMLDivElement>(null);
 
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 
@@ -32,10 +35,15 @@ export default function TestPage() {
     setError(err);
   }, []);
 
+  const handleLog = useCallback((msg: string) => {
+    setLogs((prev) => [...prev, msg]);
+  }, []);
+
   const { status, isSpeaking, connect, disconnect } = useGeminiLive({
     apiKey,
     onTranscript: handleTranscript,
     onError: handleError,
+    onLog: handleLog,
   });
 
   // Auto-scroll transcript
@@ -45,9 +53,17 @@ export default function TestPage() {
     }
   }, [transcript]);
 
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logsRef.current) {
+      logsRef.current.scrollTop = logsRef.current.scrollHeight;
+    }
+  }, [logs]);
+
   const handleParseForm = async () => {
     setParseStatus("parsing");
     setParseError("");
+    handleLog(`Parsing form: ${formUrl}`);
     try {
       const res = await fetch("/api/parse-form", {
         method: "POST",
@@ -58,9 +74,11 @@ export default function TestPage() {
       if (!res.ok) throw new Error(data.error || "Failed to parse form");
       setFormData(data.data);
       setParseStatus("parsed");
+      handleLog(`Parsed: "${data.data.title}" — ${data.data.questions.length} questions`);
     } catch (err: any) {
       setParseError(err.message);
       setParseStatus("error");
+      handleLog(`Parse error: ${err.message}`);
     }
   };
 
@@ -68,7 +86,9 @@ export default function TestPage() {
     if (!formData) return;
     setError("");
     setTranscript([]);
+    handleLog("Building system prompt...");
     const systemPrompt = createFormAgentPrompt(formData.title, formData.questions);
+    handleLog(`System prompt built (${systemPrompt.length} chars)`);
     await connect(systemPrompt);
   };
 
@@ -116,9 +136,7 @@ export default function TestPage() {
 
           {formData && (
             <div className="mt-3 p-3 bg-gray-800 rounded text-xs font-mono">
-              <p className="text-green-400">
-                Parsed: {formData.title}
-              </p>
+              <p className="text-green-400">Parsed: {formData.title}</p>
               <p className="text-gray-500 mt-1">
                 {formData.questions.length} questions found
               </p>
@@ -127,6 +145,9 @@ export default function TestPage() {
                   <li key={q.id}>
                     {i + 1}. [{q.type}] {q.title}
                     {q.required && <span className="text-red-400"> *</span>}
+                    {q.options && q.options.length > 0 && (
+                      <span className="text-gray-600"> ({q.options.join(", ")})</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -193,7 +214,7 @@ export default function TestPage() {
             <p className="mt-3 text-red-400 text-xs font-mono">{error}</p>
           )}
 
-          {/* Audio visualizer placeholder */}
+          {/* Audio visualizer */}
           {status === "active" && (
             <div className="mt-4 flex items-center justify-center gap-1 h-12">
               {Array.from({ length: 20 }).map((_, i) => (
@@ -215,13 +236,11 @@ export default function TestPage() {
         </div>
 
         {/* Transcript */}
-        <div className="p-4 bg-gray-900 rounded-lg border border-gray-800">
-          <h2 className="text-sm font-mono text-gray-400 mb-3">
-            Transcript
-          </h2>
+        <div className="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
+          <h2 className="text-sm font-mono text-gray-400 mb-3">Transcript</h2>
           <div
             ref={transcriptRef}
-            className="h-64 overflow-y-auto space-y-2 font-mono text-sm"
+            className="h-48 overflow-y-auto space-y-2 font-mono text-sm"
           >
             {transcript.length === 0 ? (
               <p className="text-gray-600 text-xs">
@@ -248,11 +267,58 @@ export default function TestPage() {
           </div>
         </div>
 
-        {/* Debug info */}
+        {/* Debug Logs */}
+        <div className="p-4 bg-gray-900 rounded-lg border border-gray-800">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-mono text-gray-400">Debug Logs</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setLogs([])}
+                className="text-xs font-mono text-gray-600 hover:text-gray-400 transition"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => setShowLogs(!showLogs)}
+                className="text-xs font-mono text-gray-600 hover:text-gray-400 transition"
+              >
+                {showLogs ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          {showLogs && (
+            <div
+              ref={logsRef}
+              className="h-48 overflow-y-auto font-mono text-xs space-y-0.5"
+            >
+              {logs.length === 0 ? (
+                <p className="text-gray-700">No logs yet...</p>
+              ) : (
+                logs.map((log, i) => (
+                  <p
+                    key={i}
+                    className={
+                      log.includes("error") || log.includes("Error")
+                        ? "text-red-400"
+                        : log.includes("Received audio")
+                        ? "text-yellow-600"
+                        : log.includes("Sent ")
+                        ? "text-gray-700"
+                        : "text-gray-500"
+                    }
+                  >
+                    {log}
+                  </p>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer debug info */}
         <div className="mt-4 text-xs font-mono text-gray-600">
           <p>API Key: {apiKey ? `${apiKey.slice(0, 10)}...` : "NOT SET"}</p>
-          <p>Status: {status}</p>
-          <p>Form: {formData?.title || "Not loaded"}</p>
+          <p>Status: {status} | Form: {formData?.title || "Not loaded"}</p>
         </div>
       </div>
     </div>
