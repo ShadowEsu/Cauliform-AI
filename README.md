@@ -29,6 +29,19 @@ Cauliform is an AI-powered voice agent that transforms Google Forms into natural
 
 [![Cauliform Demo](https://img.youtube.com/vi/N7ZOtOqVaf8/maxresdefault.jpg)](https://youtu.be/N7ZOtOqVaf8)
 
+## Architecture
+
+![Cauliform Architecture Diagram](architecture.png)
+
+The system connects the user's browser to **Gemini Live API** via WebSocket for real-time voice conversation. **Cloud Run** hosts the Next.js backend with API routes for form parsing, profile management, and form submission. **Firebase Firestore** stores two collections:
+
+- **`user_profiles`** — Keyed by phone number, stores common responses (name, email, company, job title) extracted from past form submissions. On future calls, these are injected into Gemini's system prompt so the agent can confirm known answers instead of re-asking.
+- **`call_sessions`** — Logs every form interaction (form URL, title, answers, status, timestamp), enabling cross-form intelligence and call history tracking.
+
+When a user fills out Form A and provides their name and email, those fields are automatically saved. When they later fill out Form B (a completely different form), the agent already knows their info and says *"I have your name as Chinat Yu — is that still correct?"*
+
+**TinyFish** (AI browser agent) handles the actual Google Form submission by automating the browser to fill and submit the form, keeping the form owner's workflow untouched.
+
 ## The Problem
 
 Google Forms are everywhere—surveys, event registrations, feedback forms, applications. Yet filling them out requires your full attention: you need to stop what you're doing, pull out your device, and manually type responses. This creates friction that leads to abandoned forms, incomplete responses, and missed opportunities.
