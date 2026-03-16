@@ -171,7 +171,7 @@ export default function ExperiencePage() {
         {/* ─── Landing ─── */}
         {stage === "landing" && (
           <div className="flex flex-col items-center">
-            <Image src="/Logo.jpg" alt="Cauli" width={140} height={140} className="mb-2 drop-shadow-lg" />
+            <Image src="/logo-clean.png" alt="Cauli" width={140} height={140} className="mb-2 drop-shadow-lg" />
             <h1 className="text-4xl font-bold text-stone-800 tracking-tight">Cauli</h1>
             <p className="text-stone-500 mt-1 mb-8 text-center">Fill out any Google Form with your voice</p>
 
@@ -268,7 +268,7 @@ export default function ExperiencePage() {
         {/* ─── Connecting ─── */}
         {stage === "connecting" && (
           <div className="flex flex-col items-center py-12">
-            <Image src="/Logo.jpg" alt="Cauli" width={80} height={80} className="mb-4 opacity-80" />
+            <Image src="/logo-clean.png" alt="Cauli" width={80} height={80} className="mb-4 opacity-80" />
             <div className="animate-spin w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full mb-4" />
             <p className="text-stone-500">Connecting to Cauli...</p>
           </div>
@@ -277,7 +277,7 @@ export default function ExperiencePage() {
         {/* ─── Conversation ─── */}
         {(stage === "conversation" || stage === "submitting" || stage === "done") && (
           <div className="flex flex-col items-center">
-            <Image src="/Logo.jpg" alt="Cauli" width={70} height={70} className="mb-2" />
+            <Image src="/logo-clean.png" alt="Cauli" width={70} height={70} className="mb-2" />
 
             {/* Form title */}
             {formData && (

@@ -220,7 +220,7 @@ export default function HomePage() {
       <div className="w-full max-w-lg">
         {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8">
-          <Image src="/Logo.jpg" alt="Cauliform" width={100} height={100} className="mb-3" />
+          <Image src="/logo-clean.png" alt="Cauliform" width={100} height={100} className="mb-3" />
           <h1 className="text-3xl font-bold text-gray-900">Cauliform</h1>
           <p className="text-gray-500 text-center mt-1 text-sm">
             Fill out any Google Form with your voice
