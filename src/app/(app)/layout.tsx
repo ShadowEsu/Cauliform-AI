@@ -64,15 +64,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <nav className="space-y-1">
               <NavLink href="/dashboard" label="Dashboard" />
-              <NavLink href="/campaigns" label="Campaigns" />
               <NavLink href="/saved-forms" label="Saved Forms" />
-              <NavLink href="/sessions" label="Sessions" />
-              <NavLink href="/contacts" label="Contacts" />
-              <NavLink href="/knowledge" label="Knowledge" />
               <NavLink href="/prompts" label="Prompts" />
-              <NavLink href="/alerts" label="Alerts" />
               <NavLink href="/integrations" label="Integrations" />
-              <NavLink href="/team" label="Team" />
               <NavLink href="/billing" label="Billing / Usage" />
               <NavLink href="/new-call" label="Start a Call" />
               <NavLink href="/settings" label="Settings" />
@@ -117,6 +111,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <li>• Active recall + autofill</li>
                   <li>• Reliability & retry controls</li>
                 </ul>
+                <button
+                  type="button"
+                  className="mt-3 w-full rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-rose-500"
+                >
+                  Upgrade to Cauliform Pro
+                </button>
               </div>
             </div>
           </div>
