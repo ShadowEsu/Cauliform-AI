@@ -172,7 +172,7 @@ export default function ExperiencePage() {
         {stage === "landing" && (
           <div className="flex flex-col items-center">
             <Image src="/logo-clean.png" alt="Cauli" width={140} height={140} className="mb-2 drop-shadow-lg" />
-            <h1 className="text-4xl font-bold text-stone-800 tracking-tight">Cauli</h1>
+            <h1 className="text-4xl font-bold text-stone-800 tracking-tight">Cauliform AI</h1>
             <p className="text-stone-500 mt-1 mb-8 text-center">Fill out any Google Form with your voice</p>
 
             <div className="w-full space-y-3">
@@ -403,22 +403,57 @@ export default function ExperiencePage() {
                   </div>
                 </div>
 
-                {/* Architecture */}
-                <div className="bg-white/80 rounded-xl border border-stone-200 p-4 shadow-sm text-xs text-stone-600 space-y-2">
-                  <p className="font-medium text-stone-700">Architecture</p>
-                  <div className="font-mono space-y-1">
-                    <p>1. Browser captures mic audio (16kHz PCM)</p>
-                    <p>2. Audio streams via WebSocket to Gemini Live API</p>
-                    <p>3. Gemini responds with voice (24kHz PCM) + text</p>
-                    <p>4. Agent asks form questions conversationally</p>
-                    <p>5. On confirmation, Gemini calls submit_form tool</p>
-                    <p>6. AI browser agent fills & submits the Google Form</p>
-                    <p>7. Live browser view shows the agent in action</p>
+                {/* Agent Pipeline */}
+                <div className="bg-white/80 rounded-xl border border-stone-200 p-4 shadow-sm">
+                  <p className="text-xs font-medium text-stone-700 mb-3">Agent Pipeline</p>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {[
+                      { label: "User Input", icon: "📱" },
+                      { label: "Parse Form", icon: "📝" },
+                      { label: "Gemini Live", icon: "🤖" },
+                      { label: "Ask Questions", icon: "🎤" },
+                      { label: "Confirm", icon: "✅" },
+                      { label: "Submit Form", icon: "📤" },
+                    ].map((step, i) => (
+                      <span key={step.label} className="flex items-center gap-1.5">
+                        <span className="bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 text-stone-700 whitespace-nowrap">
+                          {step.icon} {step.label}
+                        </span>
+                        {i < 5 && <span className="text-stone-400">&rarr;</span>}
+                      </span>
+                    ))}
                   </div>
-                  <div className="pt-2 border-t border-stone-200 space-y-1 font-mono">
-                    <p className="text-stone-500">Model: gemini-2.5-flash-native-audio-latest</p>
-                    <p className="text-stone-500">Audio: PCM 16kHz in / 24kHz out</p>
-                    <p className="text-stone-500">Tools: submit_form (function calling)</p>
+                </div>
+
+                {/* Call Flow */}
+                <div className="bg-white/80 rounded-xl border border-stone-200 p-4 shadow-sm">
+                  <p className="text-xs font-medium text-stone-700 mb-3">Call Flow</p>
+                  <div className="text-xs font-mono text-stone-600 space-y-1">
+                    <p><span className="text-amber-700">User</span> &rarr; <span className="text-stone-500">Cauli:</span> Paste form URL</p>
+                    <p><span className="text-stone-500">Cauli</span> &rarr; <span className="text-blue-700">Google Forms:</span> Parse questions</p>
+                    <p><span className="text-stone-500">Cauli</span> &rarr; <span className="text-green-700">Gemini Live:</span> Open voice session</p>
+                    <p className="pl-4 text-stone-400">loop Each Question &#123;</p>
+                    <p className="pl-8"><span className="text-green-700">Gemini</span> &rarr; <span className="text-amber-700">User:</span> Ask question (voice)</p>
+                    <p className="pl-8"><span className="text-amber-700">User</span> &rarr; <span className="text-green-700">Gemini:</span> Speak answer</p>
+                    <p className="pl-4 text-stone-400">&#125;</p>
+                    <p><span className="text-green-700">Gemini</span> &rarr; <span className="text-amber-700">User:</span> &quot;Confirm your answers...&quot;</p>
+                    <p><span className="text-amber-700">User</span> &rarr; <span className="text-green-700">Gemini:</span> &quot;Yes, submit&quot;</p>
+                    <p><span className="text-green-700">Gemini</span> &rarr; <span className="text-stone-500">Cauli:</span> <span className="text-green-600">submit_form()</span> tool call</p>
+                    <p><span className="text-stone-500">Cauli</span> &rarr; <span className="text-blue-700">AI Agent:</span> Fill &amp; submit Google Form</p>
+                    <p><span className="text-green-700">Gemini</span> &rarr; <span className="text-amber-700">User:</span> &quot;Done! Have a great day!&quot;</p>
+                  </div>
+                </div>
+
+                {/* Tech Details */}
+                <div className="bg-stone-900 rounded-xl p-4 shadow-sm">
+                  <p className="text-xs font-medium text-stone-500 mb-2">Technical Details</p>
+                  <div className="text-xs font-mono text-stone-500 space-y-1">
+                    <p>Model: <span className="text-amber-400">gemini-2.5-flash-native-audio-latest</span></p>
+                    <p>Audio In: <span className="text-amber-400">PCM 16kHz 16-bit mono</span></p>
+                    <p>Audio Out: <span className="text-amber-400">PCM 24kHz 16-bit mono</span></p>
+                    <p>Protocol: <span className="text-amber-400">WebSocket (bidiGenerateContent)</span></p>
+                    <p>Tools: <span className="text-green-400">submit_form</span> (function calling)</p>
+                    <p>Submission: <span className="text-amber-400">AI browser agent (stealth)</span></p>
                   </div>
                 </div>
               </div>
