@@ -292,6 +292,34 @@ src/
 └── components/                  # React components
 ```
 
+## TODO: User Profile Storage (Firebase)
+
+Track users by phone number and remember their data over time using Firestore.
+
+**Firebase Config:**
+- Project ID: `cauliform-ai-d836f`
+- API Key: `AIzaSyBovx3wV8lTZrNzcg4rCb1qcvxljoUhjuA`
+- Auth Domain: `cauliform-ai-d836f.firebaseapp.com`
+
+**What to store per user (keyed by phone number):**
+- `phoneNumber` — primary identifier
+- `name`, `email`, `age`, etc. — learned from past form responses
+- `knownResponses` — map of field patterns to saved values (auto-fill future forms)
+- `sessions[]` — history of completed form sessions (form title, answers, timestamp)
+- `formsCompleted` — count
+- `lastActiveAt` — timestamp
+
+**How it connects:**
+1. When a call/conversation starts, look up user by phone number in Firestore
+2. Pre-fill known answers (e.g., name, email) and confirm with user
+3. After form submission, save new responses to user profile
+4. Next time the same user fills a form, agent says: "I have your name as Alice — should I use that?"
+
+**Files to implement:**
+- `src/lib/user-profile.ts` — CRUD operations for user profiles
+- Update `src/hooks/useGeminiLive.ts` — pass known answers to system prompt
+- Update `src/app/api/submit-form/route.ts` — save responses after submission
+
 ## Documentation
 
 - [PRD.md](PRD.md) - Product Requirements Document
