@@ -111,12 +111,13 @@ export async function parseGoogleForm(url: string): Promise<FormData> {
 /**
  * Parse the internal form data structure
  */
-function parseFormDataStructure(data: unknown[]): Question[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseFormDataStructure(data: any[]): Question[] {
   const questions: Question[] = [];
 
   // The form questions are nested in the data structure
   // This varies by form but generally follows this pattern
-  const questionData = data[1]?.[1] as unknown[][] | undefined;
+  const questionData = data[1]?.[1] as any[] | undefined;
 
   if (!Array.isArray(questionData)) {
     return questions;
@@ -125,7 +126,7 @@ function parseFormDataStructure(data: unknown[]): Question[] {
   for (const item of questionData) {
     if (!Array.isArray(item) || item.length < 2) continue;
 
-    const questionInfo = item[1] as unknown[];
+    const questionInfo = item[1];
     if (!Array.isArray(questionInfo)) continue;
 
     const question: Question = {
@@ -137,11 +138,11 @@ function parseFormDataStructure(data: unknown[]): Question[] {
     };
 
     // Extract options for multiple choice questions
-    const optionsData = questionInfo[4]?.[0]?.[1] as unknown[][] | undefined;
+    const optionsData = questionInfo[4]?.[0]?.[1] as any[] | undefined;
     if (Array.isArray(optionsData)) {
       question.options = optionsData
         .filter(Array.isArray)
-        .map((opt) => String(opt[0] || ""));
+        .map((opt: any) => String(opt[0] || ""));
     }
 
     if (question.title) {

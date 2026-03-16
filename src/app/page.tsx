@@ -1,16 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 type CallState = "idle" | "parsing" | "calling" | "in_progress" | "success" | "error";
 
 export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
+  const searchParams = useSearchParams();
   const [formUrl, setFormUrl] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [callState, setCallState] = useState<CallState>("idle");
   const [error, setError] = useState("");
   const [formTitle, setFormTitle] = useState("");
+
+  useEffect(() => {
+    if (searchParams.get("test") !== null) {
+      setFormUrl("https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform?usp=dialog");
+      setPhoneNumber("4437224218");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -36,12 +36,14 @@ export async function POST(request: Request) {
     // Store session data (in production, use Firestore)
     // For now, we'll pass essential data via query params
 
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+
     // Initiate the call
     const call = await client.calls.create({
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER!,
-      url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook?sessionId=${sessionId}&formUrl=${encodeURIComponent(formUrl)}`,
-      statusCallback: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/status?sessionId=${sessionId}`,
+      url: `${baseUrl}/api/webhook?sessionId=${sessionId}&formUrl=${encodeURIComponent(formUrl)}`,
+      statusCallback: `${baseUrl}/api/webhook/status?sessionId=${sessionId}`,
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
     });
 
