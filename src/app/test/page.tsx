@@ -23,6 +23,7 @@ export default function TestPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(true);
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "submitting" | "success" | "failed">("idle");
+  const [agentStreamUrl, setAgentStreamUrl] = useState<string>("");
   const transcriptRef = useRef<HTMLDivElement>(null);
   const logsRef = useRef<HTMLDivElement>(null);
   const formUrlRef = useRef(formUrl);
@@ -52,12 +53,12 @@ export default function TestPage() {
 
   const handleFormSubmit = useCallback(async (answers: { questionTitle: string; answer: string }[]) => {
     setSubmissionStatus("submitting");
+    setAgentStreamUrl("");
     const log = (msg: string) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
     log(`=== FORM SUBMISSION STARTED ===`);
-    log(`Answers: ${JSON.stringify(answers, null, 2)}`);
-    log(`Form URL: ${formUrlRef.current}`);
-    log(`Calling /api/submit-form (AI browser agent)...`);
+    log(`Answers: ${JSON.stringify(answers)}`);
+    log(`Calling AI browser agent...`);
 
     try {
       const res = await fetch("/api/submit-form", {
@@ -68,22 +69,78 @@ export default function TestPage() {
           responses: answers,
         }),
       });
-      const data = await res.json();
-      log(`Response status: ${res.status}`);
-      log(`Response data: ${JSON.stringify(data, null, 2)}`);
 
-      if (res.ok && data.success) {
-        setSubmissionStatus("success");
-        log(`=== FORM SUBMITTED SUCCESSFULLY (${data.steps} steps) ===`);
-      } else {
+      if (!res.ok) {
+        const data = await res.json();
         setSubmissionStatus("failed");
         log(`=== SUBMISSION FAILED: ${data.error || data.details} ===`);
+        return;
+      }
+
+      // Read SSE stream from the agent
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setSubmissionStatus("failed");
+        log("No response stream");
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let steps = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            steps++;
+
+            // Capture streaming URL for live browser view
+            if (event.streamingUrl) {
+              log(`Live browser view: ${event.streamingUrl}`);
+              setAgentStreamUrl(event.streamingUrl);
+            }
+
+            // Log progress
+            if (event.purpose || event.message) {
+              log(`[Agent step ${steps}] ${event.purpose ?? event.message}`);
+            }
+
+            // Check completion
+            if (event.type === "COMPLETE" || event.status === "COMPLETED") {
+              setSubmissionStatus("success");
+              log(`=== FORM SUBMITTED SUCCESSFULLY (${steps} steps) ===`);
+            }
+
+            // Check errors
+            if (event.type === "ERROR" || event.error) {
+              setSubmissionStatus("failed");
+              log(`=== SUBMISSION ERROR: ${event.error ?? event.message} ===`);
+            }
+          } catch {
+            // skip malformed events
+          }
+        }
+      }
+
+      // If we finished the stream without explicit success/error
+      if (submissionStatus === "submitting") {
+        setSubmissionStatus("failed");
+        log("Stream ended without completion signal");
       }
     } catch (err: any) {
       setSubmissionStatus("failed");
-      setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Submission error: ${err.message}`]);
+      log(`Submission error: ${err.message}`);
     }
-  }, []);
+  }, [submissionStatus]);
 
   const { status, isSpeaking, connect, disconnect } = useGeminiLive({
     apiKey,
@@ -379,18 +436,44 @@ export default function TestPage() {
           )}
         </div>
 
-        {/* Submission Status */}
+        {/* Submission Status + Live Browser View */}
         {submissionStatus !== "idle" && (
           <div className={`mb-6 p-4 rounded-lg border ${
             submissionStatus === "submitting" ? "bg-yellow-900/30 border-yellow-700" :
             submissionStatus === "success" ? "bg-green-900/30 border-green-700" :
             "bg-red-900/30 border-red-700"
           }`}>
-            <p className="text-sm font-mono">
-              {submissionStatus === "submitting" && "Submitting form via TinyFish..."}
+            <p className="text-sm font-mono mb-3">
+              {submissionStatus === "submitting" && "AI agent is filling out the form..."}
               {submissionStatus === "success" && "Form submitted successfully!"}
               {submissionStatus === "failed" && "Form submission failed. Check logs."}
             </p>
+
+            {/* Live browser embed */}
+            {agentStreamUrl && (
+              <div className="rounded overflow-hidden border border-gray-700">
+                <div className="bg-gray-800 px-3 py-1 flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                  </div>
+                  <span className="text-xs font-mono text-gray-400 truncate">
+                    AI Agent — Live Browser View
+                  </span>
+                  {submissionStatus === "submitting" && (
+                    <div className="ml-auto w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  )}
+                </div>
+                <iframe
+                  src={agentStreamUrl}
+                  className="w-full bg-white"
+                  style={{ height: "400px" }}
+                  sandbox="allow-same-origin allow-scripts"
+                  title="AI Agent Browser View"
+                />
+              </div>
+            )}
           </div>
         )}
 
