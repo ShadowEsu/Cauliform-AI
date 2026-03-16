@@ -11,12 +11,18 @@ import {
 const GEMINI_INPUT_SAMPLE_RATE = 16000;
 const GEMINI_OUTPUT_SAMPLE_RATE = 24000;
 
+interface FormAnswer {
+  questionTitle: string;
+  answer: string;
+}
+
 interface UseGeminiLiveOptions {
   apiKey: string;
   model?: string;
   onTranscript?: (role: "user" | "agent", text: string) => void;
   onError?: (error: string) => void;
   onLog?: (message: string) => void;
+  onFormSubmit?: (answers: FormAnswer[]) => void;
 }
 
 export type ConnectionStatus =
@@ -32,6 +38,7 @@ export function useGeminiLive({
   onTranscript,
   onError,
   onLog,
+  onFormSubmit,
 }: UseGeminiLiveOptions) {
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -81,7 +88,7 @@ export function useGeminiLive({
   }, []);
 
   const connect = useCallback(
-    async (systemPrompt: string) => {
+    async (systemPrompt: string, tools?: unknown[]) => {
       try {
         setStatus("connecting");
         log("Starting connection...");
@@ -131,17 +138,19 @@ export function useGeminiLive({
 
         ws.onopen = () => {
           log("WebSocket connected, sending setup message...");
-          const setupMsg = {
-            setup: {
-              model: `models/${model}`,
-              generationConfig: {
-                responseModalities: ["AUDIO"],
-              },
-              systemInstruction: {
-                parts: [{ text: systemPrompt }],
-              },
+          const setupConfig: Record<string, unknown> = {
+            model: `models/${model}`,
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+            },
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
             },
           };
+          if (tools && tools.length > 0) {
+            setupConfig.tools = tools;
+          }
+          const setupMsg = { setup: setupConfig };
           ws.send(JSON.stringify(setupMsg));
           log(`Setup sent (prompt: ${systemPrompt.length} chars)`);
         };
@@ -262,8 +271,34 @@ export function useGeminiLive({
             }
           }
 
+          // Handle tool calls from Gemini
+          if (data.toolCall) {
+            log(`Tool call received: ${JSON.stringify(data.toolCall)}`);
+            const functionCalls = data.toolCall.functionCalls;
+            if (functionCalls) {
+              for (const fc of functionCalls) {
+                if (fc.name === "submit_form" && fc.args?.answers) {
+                  log(`submit_form called with ${fc.args.answers.length} answers`);
+                  onFormSubmit?.(fc.args.answers);
+
+                  // Send tool response back to Gemini so it can continue talking
+                  ws.send(JSON.stringify({
+                    toolResponse: {
+                      functionResponses: [{
+                        id: fc.id,
+                        name: fc.name,
+                        response: { success: true, message: "Form submitted successfully" },
+                      }],
+                    },
+                  }));
+                  log("Sent tool response to Gemini");
+                }
+              }
+            }
+          }
+
           // Log any other message types
-          if (!data.setupComplete && !data.serverContent) {
+          if (!data.setupComplete && !data.serverContent && !data.toolCall) {
             log(`Unknown message: ${JSON.stringify(data).slice(0, 200)}`);
           }
         };

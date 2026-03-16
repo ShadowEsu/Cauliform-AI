@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
-import { createFormAgentPrompt } from "@/lib/prompts";
+import { createFormAgentPrompt, getFormTools } from "@/lib/prompts";
 import type { FormData } from "@/lib/types";
 
 interface TranscriptEntry {
@@ -22,8 +22,11 @@ export default function TestPage() {
   const [error, setError] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(true);
+  const [submissionStatus, setSubmissionStatus] = useState<"idle" | "submitting" | "success" | "failed">("idle");
   const transcriptRef = useRef<HTMLDivElement>(null);
   const logsRef = useRef<HTMLDivElement>(null);
+  const formUrlRef = useRef(formUrl);
+  formUrlRef.current = formUrl;
 
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
 
@@ -39,11 +42,41 @@ export default function TestPage() {
     setLogs((prev) => [...prev, msg]);
   }, []);
 
+  const handleFormSubmit = useCallback(async (answers: { questionTitle: string; answer: string }[]) => {
+    setSubmissionStatus("submitting");
+    const ts = new Date().toLocaleTimeString();
+    setLogs((prev) => [...prev, `[${ts}] FORM SUBMIT triggered with ${answers.length} answers`]);
+    setLogs((prev) => [...prev, `[${ts}] Answers: ${JSON.stringify(answers)}`]);
+
+    try {
+      const res = await fetch("/api/submit-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          formUrl: formUrlRef.current,
+          responses: answers,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubmissionStatus("success");
+        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Form submitted successfully!`]);
+      } else {
+        setSubmissionStatus("failed");
+        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Submission failed: ${data.error || data.details}`]);
+      }
+    } catch (err: any) {
+      setSubmissionStatus("failed");
+      setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Submission error: ${err.message}`]);
+    }
+  }, []);
+
   const { status, isSpeaking, connect, disconnect } = useGeminiLive({
     apiKey,
     onTranscript: handleTranscript,
     onError: handleError,
     onLog: handleLog,
+    onFormSubmit: handleFormSubmit,
   });
 
   // Auto-scroll transcript
@@ -86,10 +119,13 @@ export default function TestPage() {
     if (!formData) return;
     setError("");
     setTranscript([]);
+    setSubmissionStatus("idle");
     handleLog("Building system prompt...");
     const systemPrompt = createFormAgentPrompt(formData.title, formData.questions);
+    const tools = getFormTools();
     handleLog(`System prompt built (${systemPrompt.length} chars)`);
-    await connect(systemPrompt);
+    handleLog(`Tools: submit_form registered`);
+    await connect(systemPrompt, tools);
   };
 
   const handleEndConversation = () => {
@@ -328,6 +364,21 @@ export default function TestPage() {
             </div>
           )}
         </div>
+
+        {/* Submission Status */}
+        {submissionStatus !== "idle" && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            submissionStatus === "submitting" ? "bg-yellow-900/30 border-yellow-700" :
+            submissionStatus === "success" ? "bg-green-900/30 border-green-700" :
+            "bg-red-900/30 border-red-700"
+          }`}>
+            <p className="text-sm font-mono">
+              {submissionStatus === "submitting" && "Submitting form via TinyFish..."}
+              {submissionStatus === "success" && "Form submitted successfully!"}
+              {submissionStatus === "failed" && "Form submission failed. Check logs."}
+            </p>
+          </div>
+        )}
 
         {/* Transcript */}
         <div className="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
