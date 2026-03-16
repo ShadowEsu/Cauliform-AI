@@ -50,8 +50,6 @@ export async function POST(request: Request) {
     // Store session data (in production, use Firestore)
     // For now, we'll pass essential data via query params
 
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
-
     // Initiate the call
     if (!process.env.TWILIO_PHONE_NUMBER) {
       return NextResponse.json(

@@ -1,20 +1,23 @@
-import { GoogleGenAI } from "@google/genai";
-import type { Question } from "./types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Re-export the prompt builder for backward compatibility
 export { createFormAgentPrompt } from "./prompts";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY! });
+function getClient() {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing GOOGLE_AI_API_KEY env var");
+  }
+  return new GoogleGenerativeAI(apiKey);
+}
 
 export async function generateResponse(systemPrompt: string, userInput: string) {
-  const response = await ai.models.generateContent({
+  const genAI = getClient();
+  const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
-    contents: userInput,
-    config: {
-      systemInstruction: systemPrompt,
-      maxOutputTokens: 300,
-    },
+    systemInstruction: systemPrompt,
   });
 
-  return response.text || "";
+  const result = await model.generateContent(userInput);
+  return result.response.text();
 }
