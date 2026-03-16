@@ -57,4 +57,5 @@ export interface UserProfile {
   phoneNumber: string;
   commonResponses: Record<string, string>;
   createdAt: Date;
+  updatedAt?: Date;
 }

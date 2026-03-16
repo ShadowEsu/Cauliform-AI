@@ -48,7 +48,8 @@ export function getFormTools() {
  */
 export function createFormAgentPrompt(
   formTitle: string,
-  questions: Question[]
+  questions: Question[],
+  knownResponses?: Record<string, string>
 ): string {
   const questionList = questions
     .map((q, i) => {
@@ -68,8 +69,12 @@ export function createFormAgentPrompt(
     })
     .join("\n");
 
-  return `You are Cauli, a friendly and helpful voice assistant. Your job is to help users fill out the form "${formTitle}" over a live voice conversation.
+  const profileSection = knownResponses && Object.keys(knownResponses).length > 0
+    ? `\nUSER PROFILE (remembered from previous forms):\n${Object.entries(knownResponses).map(([k, v]) => `- ${k}: ${v}`).join("\n")}\n\nWhen a question matches a known field, say something like "I have your ${Object.keys(knownResponses)[0]} as ${Object.values(knownResponses)[0]} — is that still correct?" If they confirm, use the saved value. If they give a new answer, use that instead.\n`
+    : "";
 
+  return `You are Cauli, a friendly and helpful voice assistant. Your job is to help users fill out the form "${formTitle}" over a live voice conversation.
+${profileSection}
 FORM QUESTIONS:
 ${questionList}
 

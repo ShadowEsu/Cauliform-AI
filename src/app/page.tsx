@@ -16,6 +16,7 @@ type AppState = "input" | "connecting" | "conversation" | "ended";
 
 export default function HomePage() {
   const [formUrl, setFormUrl] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [formData, setFormData] = useState<FormData | null>(null);
   const [appState, setAppState] = useState<AppState>("input");
   const [error, setError] = useState("");
@@ -25,11 +26,14 @@ export default function HomePage() {
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "submitting" | "success" | "failed">("idle");
   const [agentStreamUrl, setAgentStreamUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [knownResponses, setKnownResponses] = useState<Record<string, string>>({});
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const logsRef = useRef<HTMLDivElement>(null);
   const formUrlRef = useRef(formUrl);
   formUrlRef.current = formUrl;
+  const phoneRef = useRef(phoneNumber);
+  phoneRef.current = phoneNumber;
 
   // Fetch API key from server
   useEffect(() => {
@@ -100,6 +104,14 @@ export default function HomePage() {
             if (event.type === "COMPLETE" || event.status === "COMPLETED") {
               setSubmissionStatus("success");
               log(`=== FORM SUBMITTED (${steps} steps) ===`);
+              // Save profile memory
+              if (phoneRef.current) {
+                fetch("/api/user-profile", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ phoneNumber: phoneRef.current, answers }),
+                }).then(() => log("Profile memory saved")).catch(() => {});
+              }
             }
             if (event.type === "ERROR" || event.error) {
               setSubmissionStatus("failed");
@@ -159,8 +171,26 @@ export default function HomePage() {
       setFormData(data.data);
       handleLog(`Parsed: "${data.data.title}" — ${data.data.questions.length} questions`);
 
+      // Fetch user profile if phone number provided
+      let profileResponses: Record<string, string> = {};
+      if (phoneNumber) {
+        try {
+          const profileRes = await fetch(`/api/user-profile?phone=${encodeURIComponent(phoneNumber)}`);
+          const profileData = await profileRes.json();
+          if (profileData.profile?.commonResponses) {
+            profileResponses = profileData.profile.commonResponses;
+            setKnownResponses(profileResponses);
+            handleLog(`Profile found: ${Object.keys(profileResponses).length} saved fields`);
+          } else {
+            handleLog("No existing profile — starting fresh");
+          }
+        } catch {
+          handleLog("Profile lookup skipped");
+        }
+      }
+
       // Start voice conversation
-      const systemPrompt = createFormAgentPrompt(data.data.title, data.data.questions);
+      const systemPrompt = createFormAgentPrompt(data.data.title, data.data.questions, profileResponses);
       const tools = getFormTools();
       handleLog("Connecting to Gemini Live API...");
       await connect(systemPrompt, tools);
@@ -205,6 +235,13 @@ export default function HomePage() {
               value={formUrl}
               onChange={(e) => setFormUrl(e.target.value)}
               placeholder="Paste a Google Form URL..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition text-gray-900"
+            />
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="Phone number (optional — enables memory)"
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition text-gray-900"
             />
             {error && <p className="text-red-600 text-sm">{error}</p>}
