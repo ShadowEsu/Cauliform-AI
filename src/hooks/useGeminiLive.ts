@@ -136,13 +136,6 @@ export function useGeminiLive({
               model: `models/${model}`,
               generationConfig: {
                 responseModalities: ["AUDIO"],
-                speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: {
-                      voiceName: "Aoede",
-                    },
-                  },
-                },
               },
               systemInstruction: {
                 parts: [{ text: systemPrompt }],
@@ -154,7 +147,15 @@ export function useGeminiLive({
         };
 
         ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(event.data as string);
+          log(`WS message keys: ${Object.keys(data).join(", ")}`);
+
+          // Check for errors
+          if (data.error) {
+            log(`API ERROR: ${JSON.stringify(data.error)}`);
+            onError?.(data.error.message || JSON.stringify(data.error));
+            return;
+          }
 
           // Setup complete
           if (data.setupComplete) {

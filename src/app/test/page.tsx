@@ -126,33 +126,43 @@ export default function TestPage() {
       };
 
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data as string);
+        try {
+          const data = JSON.parse(event.data as string);
+          handleLog(`Raw message keys: ${Object.keys(data).join(", ")}`);
 
-        if (data.setupComplete) {
-          handleLog("Setup complete! Sending greeting prompt...");
-          ws.send(JSON.stringify({
-            clientContent: {
-              turns: [{ role: "user", parts: [{ text: "Please start the conversation. Begin with your greeting." }] }],
-              turnComplete: true,
-            },
-          }));
-        }
+          if (data.setupComplete) {
+            handleLog("Setup complete! Sending greeting prompt...");
+            ws.send(JSON.stringify({
+              clientContent: {
+                turns: [{ role: "user", parts: [{ text: "Please start the conversation. Begin with your greeting." }] }],
+                turnComplete: true,
+              },
+            }));
+          }
 
-        if (data.serverContent?.modelTurn?.parts) {
-          for (const part of data.serverContent.modelTurn.parts) {
-            if (part.text) {
-              handleLog(`Text response: ${part.text.slice(0, 200)}`);
-              handleTranscript("agent", part.text);
-            }
-            if (part.inlineData?.data) {
-              handleLog(`Audio chunk: ${part.inlineData.mimeType}, ${part.inlineData.data.length} base64 chars`);
+          if (data.error) {
+            handleLog(`API ERROR: ${JSON.stringify(data.error)}`);
+            setError(JSON.stringify(data.error));
+          }
+
+          if (data.serverContent?.modelTurn?.parts) {
+            for (const part of data.serverContent.modelTurn.parts) {
+              if (part.text) {
+                handleLog(`Text response: ${part.text.slice(0, 200)}`);
+                handleTranscript("agent", part.text);
+              }
+              if (part.inlineData?.data) {
+                handleLog(`Audio chunk: ${part.inlineData.mimeType}, ${part.inlineData.data.length} base64 chars`);
+              }
             }
           }
-        }
 
-        if (data.serverContent?.turnComplete) {
-          handleLog("Turn complete! Quick test PASSED.");
-          ws.close();
+          if (data.serverContent?.turnComplete) {
+            handleLog("Turn complete! Quick test PASSED.");
+            ws.close();
+          }
+        } catch (parseErr: any) {
+          handleLog(`Message parse error: ${parseErr.message}`);
         }
       };
 
