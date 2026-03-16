@@ -36,6 +36,8 @@ export default function HomePage() {
   formUrlRef.current = formUrl;
   const phoneRef = useRef(phoneNumber);
   phoneRef.current = phoneNumber;
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
 
   // Fetch API key from server
   useEffect(() => {
@@ -106,13 +108,19 @@ export default function HomePage() {
             if (event.type === "COMPLETE" || event.status === "COMPLETED") {
               setSubmissionStatus("success");
               log(`=== FORM SUBMITTED (${steps} steps) ===`);
-              // Save profile memory
+              // Save profile memory + call session
               if (phoneRef.current) {
                 fetch("/api/user-profile", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ phoneNumber: phoneRef.current, answers }),
-                }).then(() => log("Profile memory saved")).catch(() => {});
+                  body: JSON.stringify({
+                    phoneNumber: phoneRef.current,
+                    answers,
+                    formUrl: formUrlRef.current,
+                    formTitle: formDataRef.current?.title || "Unknown Form",
+                    status: "submitted",
+                  }),
+                }).then(() => log("Profile memory + call session saved")).catch(() => {});
               }
             }
             if (event.type === "ERROR" || event.error) {

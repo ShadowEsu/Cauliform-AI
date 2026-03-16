@@ -47,4 +47,20 @@ describe("createFormAgentPrompt", () => {
     expect(prompt).toContain("Ask ONE question at a time");
     expect(prompt).toContain("Should I submit this form?");
   });
+
+  it("includes user profile when knownResponses provided", () => {
+    const prompt = createFormAgentPrompt("Test Form", questions, {
+      fullName: "Chinat Yu",
+      email: "chinat@example.com",
+    });
+    expect(prompt).toContain("USER PROFILE");
+    expect(prompt).toContain("fullName: Chinat Yu");
+    expect(prompt).toContain("email: chinat@example.com");
+    expect(prompt).toContain("is that still correct?");
+  });
+
+  it("does not include profile section when no known responses", () => {
+    const prompt = createFormAgentPrompt("Test Form", questions);
+    expect(prompt).not.toContain("USER PROFILE");
+  });
 });

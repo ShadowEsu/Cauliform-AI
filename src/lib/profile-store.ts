@@ -1,18 +1,9 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  serverTimestamp,
-} from "firebase/firestore";
-import { getFirebaseDb } from "./firebase";
+import { getAdminDb } from "./firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import type { UserProfile } from "./types";
 
 const PROFILES_COLLECTION = "user_profiles";
+const SESSIONS_COLLECTION = "call_sessions";
 
 // Common field patterns to auto-detect and save
 const FIELD_PATTERNS: Record<string, RegExp> = {
@@ -29,18 +20,26 @@ const FIELD_PATTERNS: Record<string, RegExp> = {
 export async function getProfileByPhone(
   phoneNumber: string
 ): Promise<UserProfile | null> {
-  const db = getFirebaseDb();
-  if (!db) return null;
+  const db = getAdminDb();
+  const normalized = normalizePhone(phoneNumber);
 
-  const q = query(
-    collection(db, PROFILES_COLLECTION),
-    where("phoneNumber", "==", normalizePhone(phoneNumber))
-  );
-  const snap = await getDocs(q);
+  const snap = await db
+    .collection(PROFILES_COLLECTION)
+    .where("phoneNumber", "==", normalized)
+    .limit(1)
+    .get();
+
   if (snap.empty) return null;
 
-  const docSnap = snap.docs[0];
-  return { id: docSnap.id, ...docSnap.data() } as UserProfile;
+  const doc = snap.docs[0];
+  const data = doc.data();
+  return {
+    id: doc.id,
+    phoneNumber: data.phoneNumber,
+    commonResponses: data.commonResponses || {},
+    createdAt: data.createdAt?.toDate?.() || new Date(),
+    updatedAt: data.updatedAt?.toDate?.() || undefined,
+  } as UserProfile;
 }
 
 /**
@@ -51,9 +50,7 @@ export async function upsertProfile(
   phoneNumber: string,
   answers: { questionTitle: string; answer: string }[]
 ): Promise<UserProfile> {
-  const db = getFirebaseDb();
-  if (!db) throw new Error("Firebase not configured");
-
+  const db = getAdminDb();
   const normalized = normalizePhone(phoneNumber);
   const existing = await getProfileByPhone(normalized);
   const extracted = extractCommonResponses(answers);
@@ -61,25 +58,75 @@ export async function upsertProfile(
   if (existing) {
     // Merge — new values overwrite old ones
     const merged = { ...existing.commonResponses, ...extracted };
-    const ref = doc(db, PROFILES_COLLECTION, existing.id);
-    await updateDoc(ref, {
+    await db.collection(PROFILES_COLLECTION).doc(existing.id).update({
       commonResponses: merged,
-      updatedAt: serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     return { ...existing, commonResponses: merged };
   }
 
   // Create new profile
-  const ref = doc(collection(db, PROFILES_COLLECTION));
-  const profile: Omit<UserProfile, "createdAt"> & { createdAt: ReturnType<typeof serverTimestamp>; updatedAt: ReturnType<typeof serverTimestamp> } = {
+  const ref = db.collection(PROFILES_COLLECTION).doc();
+  await ref.set({
     id: ref.id,
     phoneNumber: normalized,
     commonResponses: extracted,
-    createdAt: serverTimestamp() as any,
-    updatedAt: serverTimestamp() as any,
-  };
-  await setDoc(ref, profile);
-  return { ...profile, createdAt: new Date() } as UserProfile;
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return {
+    id: ref.id,
+    phoneNumber: normalized,
+    commonResponses: extracted,
+    createdAt: new Date(),
+  } as UserProfile;
+}
+
+/**
+ * Save a call session record to Firestore.
+ * Captures every form interaction for history.
+ */
+export async function saveCallSession(data: {
+  phoneNumber: string;
+  formUrl: string;
+  formTitle: string;
+  answers: { questionTitle: string; answer: string }[];
+  status: "submitted" | "failed";
+}) {
+  const db = getAdminDb();
+  const ref = db.collection(SESSIONS_COLLECTION).doc();
+  await ref.set({
+    id: ref.id,
+    phoneNumber: normalizePhone(data.phoneNumber),
+    formUrl: data.formUrl,
+    formTitle: data.formTitle,
+    answers: data.answers,
+    status: data.status,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Get call history for a phone number.
+ */
+export async function getCallHistory(phoneNumber: string, limit = 20) {
+  const db = getAdminDb();
+  const snap = await db
+    .collection(SESSIONS_COLLECTION)
+    .where("phoneNumber", "==", normalizePhone(phoneNumber))
+    .orderBy("createdAt", "desc")
+    .limit(limit)
+    .get();
+
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: data.createdAt?.toDate?.() || new Date(),
+    };
+  });
 }
 
 /**
