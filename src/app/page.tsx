@@ -52,7 +52,12 @@ function HomeContent() {
       const parseData = await parseResponse.json();
 
       if (!parseResponse.ok) {
-        throw new Error(parseData.error || "Failed to parse form");
+        setCallState("error");
+        setError(parseData.error || "Failed to parse form");
+        if (isDebug) {
+          setDebugInfo(JSON.stringify(parseData, null, 2));
+        }
+        return;
       }
 
       setFormTitle(parseData.data.title);
@@ -68,18 +73,21 @@ function HomeContent() {
       const callData = await callResponse.json();
 
       if (!callResponse.ok) {
+        setCallState("error");
+        setError(callData.error || "Failed to start call");
         if (isDebug) {
           setDebugInfo(JSON.stringify(callData, null, 2));
         }
-        throw new Error(callData.error || "Failed to start call");
+        return;
       }
 
       setCallState("in_progress");
     } catch (err) {
       setCallState("error");
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
       if (isDebug) {
-        setDebugInfo(JSON.stringify(err, null, 2));
+        setDebugInfo(msg);
       }
     }
   };
