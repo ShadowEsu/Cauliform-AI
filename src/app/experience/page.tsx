@@ -218,9 +218,10 @@ export default function ExperiencePage() {
                             navigator.clipboard.writeText(url);
                             setFormUrl(url);
                           }}
-                          className="mt-1 text-xs bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-lg transition text-stone-600 font-mono"
+                          className="mt-1.5 text-xs bg-stone-100 hover:bg-stone-200 px-3 py-2 rounded-lg transition text-stone-600 font-mono break-all leading-relaxed text-left"
                         >
-                          Click to copy &amp; paste
+                          https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform
+                          <span className="ml-2 text-amber-600">(tap to copy)</span>
                         </button>
                       </div>
                     </div>
@@ -246,9 +247,15 @@ export default function ExperiencePage() {
                     <div className="flex gap-3">
                       <span className="shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">5</span>
                       <div>
-                        <p className="font-medium">Verify in{" "}
-                          <a href="https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewanalytics" target="_blank" rel="noopener noreferrer" className="underline text-amber-700">form responses</a>
-                        </p>
+                        <p className="font-medium">Verify your submission:</p>
+                        <a
+                          href="https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s/edit?usp=sharing"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 text-xs bg-stone-100 hover:bg-stone-200 px-3 py-2 rounded-lg transition text-amber-700 font-mono break-all leading-relaxed block"
+                        >
+                          https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s
+                        </a>
                       </div>
                     </div>
                   </div>
@@ -472,19 +479,15 @@ export default function ExperiencePage() {
                     <div className="flex gap-3">
                       <span className="shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">5</span>
                       <div>
-                        <p className="font-medium">Verify submission</p>
-                        <p className="text-xs text-stone-500">
-                          Check the{" "}
-                          <a
-                            href="https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewanalytics"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline text-amber-700 hover:text-amber-900"
-                          >
-                            form responses
-                          </a>
-                          {" "}to see your submitted answers.
-                        </p>
+                        <p className="font-medium">Verify your submission:</p>
+                        <a
+                          href="https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s/edit?usp=sharing"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 text-xs bg-stone-100 hover:bg-stone-200 px-3 py-2 rounded-lg transition text-amber-700 font-mono break-all leading-relaxed block"
+                        >
+                          https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s
+                        </a>
                       </div>
                     </div>
                   </div>
