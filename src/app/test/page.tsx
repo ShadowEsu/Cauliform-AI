@@ -28,7 +28,15 @@ export default function TestPage() {
   const formUrlRef = useRef(formUrl);
   formUrlRef.current = formUrl;
 
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+  const [apiKey, setApiKey] = useState("");
+
+  // Fetch API key from server (not baked into client bundle)
+  useEffect(() => {
+    fetch("/api/gemini-token")
+      .then((r) => r.json())
+      .then((d) => { if (d.key) setApiKey(d.key); })
+      .catch(() => {});
+  }, []);
 
   const handleTranscript = useCallback((role: "user" | "agent", text: string) => {
     setTranscript((prev) => [...prev, { role, text, timestamp: new Date() }]);
@@ -139,11 +147,11 @@ export default function TestPage() {
     setTranscript([]);
     handleLog("=== QUICK API TEST (no mic) ===");
     const systemPrompt = createFormAgentPrompt(formData.title, formData.questions);
-    const apiKeyVal = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+    const apiKeyVal = apiKey;
     const model = "gemini-2.5-flash-native-audio-latest";
     const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKeyVal}`;
 
-    handleLog(`Connecting to: ${wsUrl.replace(apiKeyVal, "***")}`);
+    handleLog(`Connecting to Gemini Live API (key: ${apiKeyVal.slice(0, 8)}...)`);
     handleLog(`Model: ${model}`);
 
     try {
@@ -470,7 +478,7 @@ export default function TestPage() {
 
         {/* Footer debug info */}
         <div className="mt-4 text-xs font-mono text-gray-600">
-          <p>API Key: {apiKey ? `${apiKey.slice(0, 10)}...` : "NOT SET"}</p>
+          <p>API Key: {apiKey ? "loaded" : "NOT SET"}</p>
           <p>Status: {status} | Form: {formData?.title || "Not loaded"}</p>
         </div>
       </div>

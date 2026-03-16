@@ -132,7 +132,7 @@ export function useGeminiLive({
         // Open WebSocket to Gemini Live API
         const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
         log(`Connecting WebSocket to Gemini Live API...`);
-        log(`Model: ${model}`);
+        log(`Model: ${model} | Key: ${apiKey.slice(0, 8)}...`);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
