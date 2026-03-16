@@ -56,8 +56,11 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error starting call:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    const code = (error as any)?.code;
+    const status = (error as any)?.status;
     return NextResponse.json(
-      { error: "Failed to start call" },
+      { error: "Failed to start call", details: message, code, twilioStatus: status },
       { status: 500 }
     );
   }

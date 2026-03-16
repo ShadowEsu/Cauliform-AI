@@ -20,7 +20,9 @@ function HomeContent() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [callState, setCallState] = useState<CallState>("idle");
   const [error, setError] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
   const [formTitle, setFormTitle] = useState("");
+  const isDebug = searchParams.get("debug") !== null;
 
   useEffect(() => {
     if (searchParams.get("test") !== null) {
@@ -66,6 +68,9 @@ function HomeContent() {
       const callData = await callResponse.json();
 
       if (!callResponse.ok) {
+        if (isDebug) {
+          setDebugInfo(JSON.stringify(callData, null, 2));
+        }
         throw new Error(callData.error || "Failed to start call");
       }
 
@@ -73,6 +78,9 @@ function HomeContent() {
     } catch (err) {
       setCallState("error");
       setError(err instanceof Error ? err.message : "Something went wrong");
+      if (isDebug) {
+        setDebugInfo(JSON.stringify(err, null, 2));
+      }
     }
   };
 
@@ -127,6 +135,12 @@ function HomeContent() {
 
             {error && (
               <p className="text-red-600 text-sm">{error}</p>
+            )}
+
+            {isDebug && debugInfo && (
+              <pre className="mt-2 p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-auto max-h-48">
+                {debugInfo}
+              </pre>
             )}
 
             <button
