@@ -273,15 +273,22 @@ export function useGeminiLive({
 
           // Handle tool calls from Gemini
           if (data.toolCall) {
-            log(`Tool call received: ${JSON.stringify(data.toolCall)}`);
+            log(`Tool call received: ${JSON.stringify(data.toolCall).slice(0, 500)}`);
             const functionCalls = data.toolCall.functionCalls;
             if (functionCalls) {
               for (const fc of functionCalls) {
                 if (fc.name === "submit_form" && fc.args?.answers) {
-                  log(`submit_form called with ${fc.args.answers.length} answers`);
-                  onFormSubmit?.(fc.args.answers);
+                  // Gemini sometimes returns answers as stringified JSON — parse them
+                  const answers = fc.args.answers.map((a: unknown) => {
+                    if (typeof a === "string") {
+                      try { return JSON.parse(a); } catch { return a; }
+                    }
+                    return a;
+                  });
+                  log(`submit_form called with ${answers.length} answers: ${JSON.stringify(answers)}`);
+                  onFormSubmit?.(answers as FormAnswer[]);
 
-                  // Send tool response back to Gemini so it can continue talking
+                  // Send tool response back IMMEDIATELY so Gemini can continue
                   ws.send(JSON.stringify({
                     toolResponse: {
                       functionResponses: [{
