@@ -14,7 +14,10 @@ export default function PlansPage() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {/* Pro */}
-          <div className="rounded-2xl border border-rose-500/50 bg-gradient-to-b from-rose-600/35 via-rose-600/10 to-zinc-950/60 p-5 shadow-[0_0_40px_rgba(244,63,94,0.45)]">
+          <div
+            className="rounded-2xl border border-rose-500/50 bg-gradient-to-b from-rose-600/35 via-rose-600/10 to-zinc-950/60 p-5 shadow-[0_0_40px_rgba(244,63,94,0.45)] animate-fade-up hover:-translate-y-1 hover:shadow-[0_0_55px_rgba(248,113,113,0.8)] transition-transform transition-shadow cursor-pointer"
+            style={{ animationDelay: "40ms" }}
+          >
             <div className="text-xs font-semibold tracking-[0.3em] text-rose-100 uppercase">
               Pro
             </div>
@@ -31,7 +34,10 @@ export default function PlansPage() {
           </div>
 
           {/* Education */}
-          <div className="rounded-2xl border border-emerald-400/40 bg-gradient-to-b from-emerald-500/30 via-emerald-500/10 to-zinc-950/60 p-5">
+          <div
+            className="rounded-2xl border border-emerald-400/40 bg-gradient-to-b from-emerald-500/30 via-emerald-500/10 to-zinc-950/60 p-5 animate-fade-up hover:-translate-y-1 hover:shadow-[0_0_55px_rgba(74,222,128,0.7)] transition-transform transition-shadow cursor-pointer"
+            style={{ animationDelay: "80ms" }}
+          >
             <div className="text-xs font-semibold tracking-[0.3em] text-emerald-100 uppercase">
               Education
             </div>
@@ -48,7 +54,10 @@ export default function PlansPage() {
           </div>
 
           {/* Business */}
-          <div className="rounded-2xl border border-sky-400/50 bg-gradient-to-b from-sky-500/30 via-sky-500/10 to-zinc-950/60 p-5">
+          <div
+            className="rounded-2xl border border-sky-400/50 bg-gradient-to-b from-sky-500/30 via-sky-500/10 to-zinc-950/60 p-5 animate-fade-up hover:-translate-y-1 hover:shadow-[0_0_55px_rgba(56,189,248,0.75)] transition-transform transition-shadow cursor-pointer"
+            style={{ animationDelay: "120ms" }}
+          >
             <div className="text-xs font-semibold tracking-[0.3em] text-sky-100 uppercase">
               Business
             </div>

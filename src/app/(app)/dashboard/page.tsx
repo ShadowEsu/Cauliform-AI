@@ -27,7 +27,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* KPI strip */}
-      <section className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+      <section
+        className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+        style={{ animationDelay: "20ms" }}
+      >
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-2xl font-semibold text-white">{greeting}</div>
@@ -52,18 +55,31 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <StatCard label="Calls today" value="0" />
-          <StatCard label="Completion rate" value="0%" />
-          <StatCard label="Avg. call length" value="0:00" />
-          <StatCard label="Failed calls" value="0" />
-          <StatCard label="Active forms" value="0" />
+          <div style={{ animationDelay: "40ms" }} className="animate-fade-up">
+            <StatCard label="Calls today" value="0" />
+          </div>
+          <div style={{ animationDelay: "60ms" }} className="animate-fade-up">
+            <StatCard label="Completion rate" value="0%" />
+          </div>
+          <div style={{ animationDelay: "80ms" }} className="animate-fade-up">
+            <StatCard label="Avg. call length" value="0:00" />
+          </div>
+          <div style={{ animationDelay: "100ms" }} className="animate-fade-up">
+            <StatCard label="Failed calls" value="0" />
+          </div>
+          <div style={{ animationDelay: "120ms" }} className="animate-fade-up">
+            <StatCard label="Active forms" value="0" />
+          </div>
         </div>
       </section>
 
       {/* Main panels */}
       <section className="grid gap-3 lg:grid-cols-2">
         {/* Calls / sessions */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+        <div
+          className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+          style={{ animationDelay: "140ms" }}
+        >
           <div className="text-lg font-semibold text-white">Calls</div>
           <div className="mt-1 text-sm text-zinc-400">
             Full session history, duration, transcript, and outcome.
@@ -75,7 +91,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Forms */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+        <div
+          className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+          style={{ animationDelay: "160ms" }}
+        >
           <div className="text-lg font-semibold text-white">Forms</div>
           <div className="mt-1 text-sm text-zinc-400">
             Saved Google Forms, parsed question preview, and readiness checks.
@@ -89,7 +108,10 @@ export default function DashboardPage() {
 
       <section className="grid gap-3 lg:grid-cols-2">
         {/* Contacts / profiles */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+        <div
+          className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+          style={{ animationDelay: "180ms" }}
+        >
           <div className="text-lg font-semibold text-white">Contacts</div>
           <div className="mt-1 text-sm text-zinc-400">
             Saved phone numbers, autofill memory, preferred language, and past completions.
@@ -101,7 +123,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Analytics */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+        <div
+          className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+          style={{ animationDelay: "200ms" }}
+        >
           <div className="text-lg font-semibold text-white">Analytics</div>
           <div className="mt-1 text-sm text-zinc-400">
             Call trends, completion rate, drop-off points, and time per form.
@@ -114,42 +139,11 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid gap-3 lg:grid-cols-3">
-        {/* Quick actions */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
-          <div className="text-lg font-semibold text-white">Quick actions</div>
-          <div className="mt-1 text-sm text-zinc-400">
-            Common workflows for testing and debugging.
-          </div>
-          <div className="mt-5 grid gap-2 text-sm">
-            <a
-              href="/api/health"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 font-semibold text-zinc-200 hover:bg-white/10"
-            >
-              Check health endpoint →
-            </a>
-            <a
-              href="/api/webhook?sessionId=demo"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 font-semibold text-zinc-200 hover:bg-white/10"
-            >
-              Preview TwiML response →
-            </a>
-            <a
-              href="https://github.com/ShadowEsu/Cauliform-AI"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 font-semibold text-zinc-200 hover:bg-white/10"
-            >
-              View Cauliform GitHub repo →
-            </a>
-          </div>
-        </div>
-
         {/* Failures / debug */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+        <div
+          className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+          style={{ animationDelay: "220ms" }}
+        >
           <div className="text-lg font-semibold text-white">Failures</div>
           <div className="mt-1 text-sm text-zinc-400">
             Failed calls, webhook issues, and retry queue.
@@ -161,7 +155,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Profiles / autofill */}
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
+        <div
+          className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up"
+          style={{ animationDelay: "240ms" }}
+        >
           <div className="text-lg font-semibold text-white">Saved profiles</div>
           <div className="mt-1 text-sm text-zinc-400">
             Autofill settings and memory for repeat callers.

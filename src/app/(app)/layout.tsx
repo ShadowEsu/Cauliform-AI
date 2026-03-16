@@ -75,7 +75,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <NavLink href="/marketing" label="Landing" />
             </nav>
 
-            <div className="mt-4 border-t border-white/10 pt-4 space-y-3 text-xs text-zinc-500">
+            <div className="mt-4 border-t border-white/10 pt-4 space-y-4 text-xs text-zinc-500">
               <button
                 onClick={async () => {
                   await logout();
@@ -94,56 +94,96 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   prestonjaysusanto@gmail.com
                 </a>
               </p>
-              <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-b from-rose-600/40 via-rose-600/10 to-transparent p-4 shadow-[0_0_40px_rgba(244,63,94,0.45)]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-[10px] font-semibold tracking-[0.3em] text-rose-100 uppercase">
-                      Cauliform Pro
+              <div className="space-y-4 text-[11px]">
+                {/* Pro */}
+                <div className="w-full rounded-2xl border border-rose-500/50 bg-gradient-to-b from-rose-600/50 via-rose-600/15 to-zinc-950/70 p-5 shadow-[0_0_50px_rgba(244,63,94,0.6)] text-left">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-semibold tracking-[0.3em] text-rose-100 uppercase">
+                        Plan
+                      </div>
+                      <div className="mt-1 text-base font-semibold text-zinc-50">
+                        Cauliform Pro
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-zinc-50">
-                      For solo builders & students
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => router.push("/plans")}
+                        className="inline-flex items-center justify-center text-[10px] font-semibold text-zinc-100 bg-black/40 border border-white/30 rounded-full px-3 py-1 min-w-[84px] cursor-pointer hover:bg-black/60 hover:border-white/60 transition"
+                      >
+                        See details
+                      </button>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs font-semibold text-zinc-100 bg-black/20 border border-white/20 rounded-full px-3 py-1">
-                      $23.99 / mo
-                    </div>
-                    <div className="mt-1 text-[10px] text-rose-100/80">
-                      Multi‑agent calls
-                    </div>
-                  </div>
+                  <ul className="mt-4 space-y-1.5 text-[12px] text-rose-50">
+                    <li>• Multiple live agents per survey</li>
+                    <li>• Active recall memory across forms</li>
+                    <li>• Reliability & retry controls</li>
+                  </ul>
                 </div>
-                <ul className="mt-3 space-y-1.5 text-[11px] text-rose-50">
-                  <li>• Multiple live agents per survey</li>
-                  <li>• Active recall memory across forms</li>
-                  <li>• Reliability & retry controls</li>
-                </ul>
+
+                {/* Education */}
+                <div className="w-full rounded-2xl border border-emerald-400/50 bg-gradient-to-b from-emerald-500/35 via-emerald-500/12 to-zinc-950/70 p-5 text-left">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-semibold tracking-[0.3em] text-emerald-100 uppercase">
+                        Plan
+                      </div>
+                      <div className="mt-1 text-base font-semibold text-emerald-50">
+                        Cauliform Education
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => router.push("/plans")}
+                        className="inline-flex items-center justify-center text-[10px] font-semibold text-emerald-100 bg-black/40 border border-emerald-300/60 rounded-full px-3 py-1 min-w-[84px] cursor-pointer hover:bg-black/60 hover:border-emerald-200/80 transition"
+                      >
+                        See details
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-[12px] text-emerald-50/90">
+                    For approved schools, classes, and non-profits using Cauliform in
+                    teaching or research.
+                  </p>
+                </div>
+
+                {/* Business */}
+                <div className="w-full rounded-2xl border border-sky-400/50 bg-gradient-to-b from-sky-500/35 via-sky-500/12 to-zinc-950/70 p-5 text-left">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-semibold tracking-[0.3em] text-sky-100 uppercase">
+                        Plan
+                      </div>
+                      <div className="mt-1 text-base font-semibold text-sky-50">
+                        Cauliform AI Business
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => router.push("/plans")}
+                        className="inline-flex items-center justify-center text-[10px] font-semibold text-sky-100 bg-black/40 border border-sky-300/60 rounded-full px-3 py-1 min-w-[84px] cursor-pointer hover:bg-black/60 hover:border-sky-200/80 transition"
+                      >
+                        See details
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-[12px] text-sky-50/90">
+                    Access to advanced multi‑agent sessions, team usage, and priority
+                    support for real campaigns.
+                  </p>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => router.push("/plans")}
-                  className="mt-3 w-full rounded-lg bg-zinc-950/80 px-3 py-1.5 text-[11px] font-semibold text-rose-100 border border-white/30 hover:bg-zinc-900"
+                  className="w-full rounded-lg bg-zinc-950/90 px-3 py-2 text-[11px] font-semibold text-zinc-100 border border-white/30 hover:bg-zinc-900 cursor-pointer"
                 >
-                  View plans
+                  See full plans page
                 </button>
-                <div className="mt-3 grid gap-2 text-[11px] text-rose-50/90">
-                  <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2">
-                    <div className="font-semibold text-emerald-100">
-                      Cauliform Education
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-emerald-50/90">
-                      Free for 1 year for approved schools, classes, and non-profits.
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-sky-400/40 bg-sky-500/15 px-3 py-2">
-                    <div className="font-semibold text-sky-100">
-                      Cauliform AI Business
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-sky-50/90">
-                      Access to advanced multi‑agent sessions and priority support —{" "}
-                      <span className="font-semibold">$200 / mo</span>.
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
