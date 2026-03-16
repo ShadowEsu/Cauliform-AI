@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cauliform AI",
-  description: "Turn any Google Form into a phone call.",
+  title: "Cauli — Voice-Powered Google Forms",
+  description: "Fill out any Google Form with your voice, powered by Gemini Live API.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

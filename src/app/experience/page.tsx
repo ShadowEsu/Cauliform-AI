@@ -171,7 +171,7 @@ export default function ExperiencePage() {
         {/* ─── Landing ─── */}
         {stage === "landing" && (
           <div className="flex flex-col items-center">
-            <Image src="/logo.png" alt="Cauli" width={140} height={140} className="mb-2 drop-shadow-lg" />
+            <Image src="/Logo.jpg" alt="Cauli" width={140} height={140} className="mb-2 drop-shadow-lg" />
             <h1 className="text-4xl font-bold text-stone-800 tracking-tight">Cauli</h1>
             <p className="text-stone-500 mt-1 mb-8 text-center">Fill out any Google Form with your voice</p>
 
@@ -195,6 +195,65 @@ export default function ExperiencePage() {
                 </svg>
                 Start Conversation
               </button>
+
+              {/* How to test it — always visible on landing */}
+              <button
+                onClick={() => setShowTestGuide(!showTestGuide)}
+                className={`w-full text-xs px-3 py-2 rounded-xl transition ${showTestGuide ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}
+              >
+                {showTestGuide ? "Hide" : "How to test it"}
+              </button>
+
+              {showTestGuide && (
+                <div className="bg-white/80 rounded-xl border border-stone-200 p-4 shadow-sm text-sm text-stone-700 space-y-4">
+                  <p className="font-medium text-stone-800">Quick Test Guide</p>
+                  <div className="space-y-3">
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                      <div>
+                        <p className="font-medium">Copy this test form URL:</p>
+                        <button
+                          onClick={() => {
+                            const url = "https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform";
+                            navigator.clipboard.writeText(url);
+                            setFormUrl(url);
+                          }}
+                          className="mt-1 text-xs bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-lg transition text-stone-600 font-mono"
+                        >
+                          Click to copy &amp; paste
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                      <p className="font-medium">Click &quot;Start Conversation&quot; and allow mic access</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                      <div>
+                        <p className="font-medium">Answer 3 questions by voice:</p>
+                        <ul className="text-xs text-stone-500 mt-1 space-y-0.5 list-disc list-inside">
+                          <li>What&apos;s your name?</li>
+                          <li>How old are you?</li>
+                          <li>What grade? (Freshman/Sophomore/Junior/Senior)</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                      <p className="font-medium">Say &quot;yes&quot; when Cauli asks to confirm &amp; submit</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                      <div>
+                        <p className="font-medium">Verify in{" "}
+                          <a href="https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewanalytics" target="_blank" rel="noopener noreferrer" className="underline text-amber-700">form responses</a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -202,7 +261,7 @@ export default function ExperiencePage() {
         {/* ─── Connecting ─── */}
         {stage === "connecting" && (
           <div className="flex flex-col items-center py-12">
-            <Image src="/logo.png" alt="Cauli" width={80} height={80} className="mb-4 opacity-80" />
+            <Image src="/Logo.jpg" alt="Cauli" width={80} height={80} className="mb-4 opacity-80" />
             <div className="animate-spin w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full mb-4" />
             <p className="text-stone-500">Connecting to Cauli...</p>
           </div>
@@ -211,7 +270,7 @@ export default function ExperiencePage() {
         {/* ─── Conversation ─── */}
         {(stage === "conversation" || stage === "submitting" || stage === "done") && (
           <div className="flex flex-col items-center">
-            <Image src="/logo.png" alt="Cauli" width={70} height={70} className="mb-2" />
+            <Image src="/Logo.jpg" alt="Cauli" width={70} height={70} className="mb-2" />
 
             {/* Form title */}
             {formData && (
