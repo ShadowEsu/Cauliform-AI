@@ -146,8 +146,9 @@ export function useGeminiLive({
           log(`Setup sent (prompt: ${systemPrompt.length} chars)`);
         };
 
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data as string);
+        ws.onmessage = async (event) => {
+          const raw = event.data instanceof Blob ? await event.data.text() : event.data;
+          const data = JSON.parse(raw);
           log(`WS message keys: ${Object.keys(data).join(", ")}`);
 
           // Check for errors

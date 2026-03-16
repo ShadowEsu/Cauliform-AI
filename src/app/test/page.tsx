@@ -125,9 +125,10 @@ export default function TestPage() {
         handleLog("Setup message sent");
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         try {
-          const data = JSON.parse(event.data as string);
+          const raw = event.data instanceof Blob ? await event.data.text() : event.data;
+          const data = JSON.parse(raw);
           handleLog(`Raw message keys: ${Object.keys(data).join(", ")}`);
 
           if (data.setupComplete) {
@@ -365,6 +366,14 @@ export default function TestPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-mono text-gray-400">Debug Logs</h2>
             <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(logs.join("\n"));
+                }}
+                className="text-xs font-mono text-gray-600 hover:text-gray-400 transition"
+              >
+                Copy
+              </button>
               <button
                 onClick={() => setLogs([])}
                 className="text-xs font-mono text-gray-600 hover:text-gray-400 transition"
