@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="Cauliform Logo" width="300">
+  <img src="logo-clean.png" alt="Cauliform Logo" width="300">
 </p>
 
 <h1 align="center">Cauliform</h1>
