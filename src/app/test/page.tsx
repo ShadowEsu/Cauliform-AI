@@ -52,9 +52,12 @@ export default function TestPage() {
 
   const handleFormSubmit = useCallback(async (answers: { questionTitle: string; answer: string }[]) => {
     setSubmissionStatus("submitting");
-    const ts = new Date().toLocaleTimeString();
-    setLogs((prev) => [...prev, `[${ts}] FORM SUBMIT triggered with ${answers.length} answers`]);
-    setLogs((prev) => [...prev, `[${ts}] Answers: ${JSON.stringify(answers)}`]);
+    const log = (msg: string) => setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+
+    log(`=== FORM SUBMISSION STARTED ===`);
+    log(`Answers: ${JSON.stringify(answers, null, 2)}`);
+    log(`Form URL: ${formUrlRef.current}`);
+    log(`Calling /api/submit-form (AI browser agent)...`);
 
     try {
       const res = await fetch("/api/submit-form", {
@@ -66,12 +69,15 @@ export default function TestPage() {
         }),
       });
       const data = await res.json();
+      log(`Response status: ${res.status}`);
+      log(`Response data: ${JSON.stringify(data, null, 2)}`);
+
       if (res.ok && data.success) {
         setSubmissionStatus("success");
-        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Form submitted successfully!`]);
+        log(`=== FORM SUBMITTED SUCCESSFULLY (${data.steps} steps) ===`);
       } else {
         setSubmissionStatus("failed");
-        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Submission failed: ${data.error || data.details}`]);
+        log(`=== SUBMISSION FAILED: ${data.error || data.details} ===`);
       }
     } catch (err: any) {
       setSubmissionStatus("failed");

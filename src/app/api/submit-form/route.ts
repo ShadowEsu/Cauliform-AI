@@ -13,7 +13,11 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log("[submit-form] Starting AI browser agent submission...");
+    console.log("[submit-form] Form URL:", formUrl);
+    console.log("[submit-form] Responses:", JSON.stringify(responses));
     const result = await submitGoogleForm(formUrl, responses);
+    console.log("[submit-form] Result:", JSON.stringify(result));
 
     if (result.success) {
       return NextResponse.json({
