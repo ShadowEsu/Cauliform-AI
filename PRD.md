@@ -399,7 +399,7 @@ User                    Frontend          Backend           Twilio          Gemi
 |------|-------|------------|
 | Handle interruptions (barge-in) | Chinat | 2 |
 | Error handling (invalid URLs, failed calls) | Preston | 2 |
-| Improve voice persona / conversation flow | Stella | 2 |
+| Improve voice persona / conversation flow | Chinat | 2 |
 | UI polish (loading states, success/error) | Preston | 2 |
 | User profile storage (Firestore) - optional | Preston | 3 |
 | **Milestone:** Smooth demo with no crashes | | |
@@ -411,9 +411,9 @@ User                    Frontend          Backend           Twilio          Gemi
 |------|-------|------------|
 | Deploy to Google Cloud Run | Chinat | 2 |
 | Record demo video (< 4 min) | All | 4 |
-| Create architecture diagram | Stella | 1 |
+| Create architecture diagram | Chinat | 1 |
 | Record GCP deployment proof | Chinat | 1 |
-| Write Devpost submission | Stella | 2 |
+| Write Devpost submission | Chinat | 2 |
 | Street interviews / user testimonials | All | 3 |
 | Final testing + bug fixes | All | 2 |
 | **Milestone:** Submit before deadline | | |

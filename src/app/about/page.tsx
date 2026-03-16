@@ -248,12 +248,7 @@ export default function AboutPage() {
                 role: "Full Stack Developer",
                 bg: "Web apps, front-end, minimal design",
               },
-              {
-                name: "Stella",
-                role: "Product Manager",
-                bg: "Banking (JP Morgan, UBS), AI/ML coursework",
-              },
-              {
+{
                 name: "Chinat Yu",
                 role: "Full Stack Developer",
                 bg: "Hackathon winner (TreeHacks), experienced builder",

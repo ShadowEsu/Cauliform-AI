@@ -344,7 +344,6 @@ This project is built for the [Gemini Live Agent Challenge](https://devpost.com)
 | Name | Role | Background |
 |------|------|------------|
 | Preston | Full Stack Developer | Web apps, front-end, minimal design |
-| Stella | Product Manager | Banking (JP Morgan, UBS), AI/ML coursework |
 | Chinat Yu | Full Stack Developer | Hackathon winner (TreeHacks), experienced builder |
 
 ## License
