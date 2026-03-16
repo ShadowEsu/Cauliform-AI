@@ -120,9 +120,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </ul>
                 <button
                   type="button"
+                  onClick={() => router.push("/plans")}
                   className="mt-3 w-full rounded-lg bg-zinc-950/80 px-3 py-1.5 text-[11px] font-semibold text-rose-100 border border-white/30 hover:bg-zinc-900"
                 >
-                  Upgrade to Cauliform Pro
+                  View plans
                 </button>
                 <div className="mt-3 grid gap-2 text-[11px] text-rose-50/90">
                   <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2">
