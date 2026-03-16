@@ -96,6 +96,80 @@ export default function TestPage() {
     disconnect();
   };
 
+  // Quick API test — no mic needed, just verifies WebSocket + audio response
+  const handleQuickTest = async () => {
+    if (!formData) return;
+    setError("");
+    setTranscript([]);
+    handleLog("=== QUICK API TEST (no mic) ===");
+    const systemPrompt = createFormAgentPrompt(formData.title, formData.questions);
+    const apiKeyVal = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+    const model = "gemini-2.5-flash-native-audio-latest";
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKeyVal}`;
+
+    handleLog(`Connecting to: ${wsUrl.replace(apiKeyVal, "***")}`);
+    handleLog(`Model: ${model}`);
+
+    try {
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        handleLog("WebSocket connected!");
+        ws.send(JSON.stringify({
+          setup: {
+            model: `models/${model}`,
+            generationConfig: { responseModalities: ["AUDIO"] },
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+          },
+        }));
+        handleLog("Setup message sent");
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data as string);
+
+        if (data.setupComplete) {
+          handleLog("Setup complete! Sending greeting prompt...");
+          ws.send(JSON.stringify({
+            clientContent: {
+              turns: [{ role: "user", parts: [{ text: "Please start the conversation. Begin with your greeting." }] }],
+              turnComplete: true,
+            },
+          }));
+        }
+
+        if (data.serverContent?.modelTurn?.parts) {
+          for (const part of data.serverContent.modelTurn.parts) {
+            if (part.text) {
+              handleLog(`Text response: ${part.text.slice(0, 200)}`);
+              handleTranscript("agent", part.text);
+            }
+            if (part.inlineData?.data) {
+              handleLog(`Audio chunk: ${part.inlineData.mimeType}, ${part.inlineData.data.length} base64 chars`);
+            }
+          }
+        }
+
+        if (data.serverContent?.turnComplete) {
+          handleLog("Turn complete! Quick test PASSED.");
+          ws.close();
+        }
+      };
+
+      ws.onerror = () => {
+        handleLog("WebSocket error!");
+        setError("WebSocket connection failed");
+      };
+
+      ws.onclose = (event) => {
+        handleLog(`WebSocket closed: code=${event.code}`);
+      };
+    } catch (err: any) {
+      handleLog(`Error: ${err.message}`);
+      setError(err.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col items-center p-6">
       <div className="w-full max-w-2xl">
@@ -184,19 +258,28 @@ export default function TestPage() {
           </div>
 
           {/* Controls */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {status === "idle" || status === "ended" || status === "error" ? (
-              <button
-                onClick={handleStartConversation}
-                disabled={!formData}
-                className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-mono font-medium transition flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                </svg>
-                Start Conversation
-              </button>
+              <>
+                <button
+                  onClick={handleStartConversation}
+                  disabled={!formData}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-mono font-medium transition flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                  </svg>
+                  Start Conversation
+                </button>
+                <button
+                  onClick={handleQuickTest}
+                  disabled={!formData}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-mono font-medium transition"
+                >
+                  Quick API Test (no mic)
+                </button>
+              </>
             ) : (
               <button
                 onClick={handleEndConversation}

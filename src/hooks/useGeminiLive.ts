@@ -90,13 +90,22 @@ export function useGeminiLive({
         log(`Creating audio capture context at ${GEMINI_INPUT_SAMPLE_RATE}Hz`);
         const audioCtx = new AudioContext({ sampleRate: GEMINI_INPUT_SAMPLE_RATE });
         audioCtxRef.current = audioCtx;
-        log(`Actual capture sample rate: ${audioCtx.sampleRate}Hz`);
+        // Resume AudioContext (required after user gesture in some browsers)
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+          log("Resumed suspended audio capture context");
+        }
+        log(`Actual capture sample rate: ${audioCtx.sampleRate}Hz, state: ${audioCtx.state}`);
 
         // Set up playback context at 24kHz
         const playbackCtx = new AudioContext({ sampleRate: GEMINI_OUTPUT_SAMPLE_RATE });
         playbackCtxRef.current = playbackCtx;
         nextPlayTimeRef.current = 0;
-        log(`Playback context created at ${playbackCtx.sampleRate}Hz`);
+        if (playbackCtx.state === "suspended") {
+          await playbackCtx.resume();
+          log("Resumed suspended playback context");
+        }
+        log(`Playback context created at ${playbackCtx.sampleRate}Hz, state: ${playbackCtx.state}`);
 
         // Get microphone
         log("Requesting microphone access...");
@@ -265,9 +274,7 @@ export function useGeminiLive({
 
         ws.onclose = (event) => {
           log(`WebSocket closed: code=${event.code} reason="${event.reason}"`);
-          if (status !== "error") {
-            setStatus("ended");
-          }
+          setStatus((prev) => (prev === "error" ? "error" : "ended"));
         };
       } catch (err: any) {
         log(`Connection error: ${err.message}`);
@@ -275,7 +282,7 @@ export function useGeminiLive({
         onError?.(err.message || "Failed to connect");
       }
     },
-    [apiKey, model, onTranscript, onError, onLog, log, playNextChunk, status]
+    [apiKey, model, onTranscript, onError, onLog, log, playNextChunk]
   );
 
   const disconnect = useCallback(() => {
