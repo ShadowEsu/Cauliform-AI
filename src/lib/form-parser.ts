@@ -116,7 +116,9 @@ function parseFormDataStructure(data: unknown[]): Question[] {
 
   // The form questions are nested in the data structure
   // This varies by form but generally follows this pattern
-  const questionData = data[1]?.[1] as unknown[][] | undefined;
+  const questionData = (data as unknown as any[])?.[1]?.[1] as
+    | unknown[][]
+    | undefined;
 
   if (!Array.isArray(questionData)) {
     return questions;
@@ -137,7 +139,9 @@ function parseFormDataStructure(data: unknown[]): Question[] {
     };
 
     // Extract options for multiple choice questions
-    const optionsData = questionInfo[4]?.[0]?.[1] as unknown[][] | undefined;
+    const optionsData = (questionInfo as unknown as any[])?.[4]?.[0]?.[1] as
+      | unknown[][]
+      | undefined;
     if (Array.isArray(optionsData)) {
       question.options = optionsData
         .filter(Array.isArray)

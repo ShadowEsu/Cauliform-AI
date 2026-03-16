@@ -8,6 +8,20 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+function getBaseUrl(request: Request) {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const origin = request.headers.get("origin")?.trim();
+  if (origin) return origin.replace(/\/+$/, "");
+
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  if (host) return `${proto}://${host}`.replace(/\/+$/, "");
+
+  return "";
+}
+
 export async function POST(request: Request) {
   try {
     const { formUrl, phoneNumber } = await request.json();
@@ -37,11 +51,29 @@ export async function POST(request: Request) {
     // For now, we'll pass essential data via query params
 
     // Initiate the call
+    if (!process.env.TWILIO_PHONE_NUMBER) {
+      return NextResponse.json(
+        { error: "Missing TWILIO_PHONE_NUMBER env var" },
+        { status: 500 }
+      );
+    }
+
+    const baseUrl = getBaseUrl(request);
+    if (!baseUrl) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing NEXT_PUBLIC_APP_URL env var (or unable to infer base URL). Set it to your public Cloud Run URL.",
+        },
+        { status: 500 }
+      );
+    }
+
     const call = await client.calls.create({
       to: phoneNumber,
       from: process.env.TWILIO_PHONE_NUMBER!,
-      url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook?sessionId=${sessionId}&formUrl=${encodeURIComponent(formUrl)}`,
-      statusCallback: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/status?sessionId=${sessionId}`,
+      url: `${baseUrl}/api/webhook?sessionId=${sessionId}&formUrl=${encodeURIComponent(formUrl)}`,
+      statusCallback: `${baseUrl}/api/webhook/status?sessionId=${sessionId}`,
       statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
     });
 
