@@ -3,25 +3,28 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const url = new URL(request.url);
-    const sessionId = url.searchParams.get("sessionId") || "unknown";
+    const sessionId = url.searchParams.get("sessionId") || "";
 
     // Twilio status callbacks are also form-encoded; parse best-effort.
-    const form = await request.formData().catch(() => null);
-    const callSid = form?.get("CallSid")?.toString();
-    const callStatus = form?.get("CallStatus")?.toString();
+    const formData = await request.formData().catch(() => null);
+    const callStatus = formData?.get("CallStatus")?.toString() || "";
+    const callSid = formData?.get("CallSid")?.toString() || "";
+    const callDuration = formData?.get("CallDuration")?.toString() || "";
 
-    console.log("Twilio status callback:", { sessionId, callSid, callStatus });
-    return NextResponse.json({ ok: true });
+    console.log(
+      `[Status] Session: ${sessionId}, SID: ${callSid}, Status: ${callStatus}, Duration: ${callDuration}s`
+    );
+
+    return NextResponse.json({ received: true });
   } catch (err) {
     console.error("Twilio status callback error:", err);
-    return NextResponse.json({ ok: false }, { status: 200 });
+    return NextResponse.json({ received: false }, { status: 200 });
   }
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const sessionId = url.searchParams.get("sessionId") || "unknown";
-  console.log("Twilio status callback GET:", { sessionId });
-  return NextResponse.json({ ok: true });
+  const sessionId = url.searchParams.get("sessionId") || "";
+  console.log(`[Status GET] Session: ${sessionId}`);
+  return NextResponse.json({ received: true });
 }
-

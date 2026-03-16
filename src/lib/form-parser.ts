@@ -111,14 +111,13 @@ export async function parseGoogleForm(url: string): Promise<FormData> {
 /**
  * Parse the internal form data structure
  */
-function parseFormDataStructure(data: unknown[]): Question[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseFormDataStructure(data: any[]): Question[] {
   const questions: Question[] = [];
 
   // The form questions are nested in the data structure
   // This varies by form but generally follows this pattern
-  const questionData = (data as unknown as any[])?.[1]?.[1] as
-    | unknown[][]
-    | undefined;
+  const questionData = data[1]?.[1] as any[] | undefined;
 
   if (!Array.isArray(questionData)) {
     return questions;
@@ -127,25 +126,21 @@ function parseFormDataStructure(data: unknown[]): Question[] {
   for (const item of questionData) {
     if (!Array.isArray(item) || item.length < 2) continue;
 
-    const questionInfo = item[1] as unknown[];
-    if (!Array.isArray(questionInfo)) continue;
-
+    // Each item is: [id, title, description, typeCode, [[entryId, options, ...]], ...]
     const question: Question = {
       id: String(item[0] || Math.random()),
-      title: String(questionInfo[0] || ""),
-      type: mapQuestionType(Number(questionInfo[3]) || 0),
-      required: Boolean(questionInfo[2]),
+      title: String(item[1] || ""),
+      type: mapQuestionType(Number(item[3]) || 0),
+      required: Boolean(item[4]?.[0]?.[2]),
       options: [],
     };
 
-    // Extract options for multiple choice questions
-    const optionsData = (questionInfo as unknown as any[])?.[4]?.[0]?.[1] as
-      | unknown[][]
-      | undefined;
-    if (Array.isArray(optionsData)) {
-      question.options = optionsData
+    // Extract options for multiple choice / checkbox / dropdown questions
+    const choiceData = item[4]?.[0]?.[1] as any[] | undefined;
+    if (Array.isArray(choiceData)) {
+      question.options = choiceData
         .filter(Array.isArray)
-        .map((opt) => String(opt[0] || ""));
+        .map((opt: any) => String(opt[0] || ""));
     }
 
     if (question.title) {

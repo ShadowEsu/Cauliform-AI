@@ -68,4 +68,3 @@ export async function GET(request: Request) {
     return twimlResponse(safeErrorTwiml(), 200);
   }
 }
-

@@ -50,6 +50,8 @@ export async function POST(request: Request) {
     // Store session data (in production, use Firestore)
     // For now, we'll pass essential data via query params
 
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+
     // Initiate the call
     if (!process.env.TWILIO_PHONE_NUMBER) {
       return NextResponse.json(
@@ -84,10 +86,17 @@ export async function POST(request: Request) {
       formTitle: formData.title,
       questionCount: formData.questions.length,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error starting call:", error);
     return NextResponse.json(
-      { error: "Failed to start call" },
+      {
+        error: "Failed to start call",
+        details: error?.message || String(error),
+        code: error?.code,
+        twilioStatus: error?.status,
+        moreInfo: error?.moreInfo,
+        stack: error?.stack?.split("\n").slice(0, 5),
+      },
       { status: 500 }
     );
   }

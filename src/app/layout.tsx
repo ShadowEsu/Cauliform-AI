@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cauliform",
+  title: "Cauliform AI",
   description: "Turn any Google Form into a phone call.",
 };
 
