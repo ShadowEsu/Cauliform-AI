@@ -28,7 +28,7 @@ export type ConnectionStatus =
 
 export function useGeminiLive({
   apiKey,
-  model = "gemini-2.0-flash-live-001",
+  model = "gemini-2.5-flash-native-audio-latest",
   onTranscript,
   onError,
   onLog,
