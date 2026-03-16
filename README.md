@@ -8,8 +8,10 @@
   <em>Turn any Google Form into a phone call</em>
 </p>
 
-<p>App URL: https://cauliform-ai-293051374734.us-west1.run.app</p>
-<p>Web URL: https://cauliform-ai.base44.app</p>
+<p align="center">
+  <a href="https://cauliform-ai-293051374734.us-west1.run.app">Live Demo</a> ·
+  <a href="https://cauliform-ai-293051374734.us-west1.run.app/about">About</a>
+</p>
 
 <p align="center">
   <a href="#the-problem">Problem</a> •
@@ -64,7 +66,7 @@ Fill out forms while walking to your car, during your commute, or while cooking 
 | Component | Technology |
 |-----------|------------|
 | **AI/ML** | Gemini Live API, Google GenAI SDK |
-| **Voice/Telephony** | Twilio Voice API |
+| **Voice/Telephony** | Twilio Voice API *(WIP — phone call flow under development)* |
 | **Frontend** | Next.js 14, React, TypeScript, Tailwind CSS |
 | **Backend** | Next.js API Routes |
 | **Cloud Infrastructure** | Google Cloud Run |
