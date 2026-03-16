@@ -58,7 +58,7 @@ export default function SignUpPage() {
 
   return (
     <div className="w-full max-w-md">
-      <div className="rounded-2xl border border-white/10 bg-zinc-900/70 backdrop-blur p-8 shadow-2xl">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/70 backdrop-blur p-8 shadow-2xl animate-fade-up">
         <div className="mb-6">
           <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">
             Cauliform

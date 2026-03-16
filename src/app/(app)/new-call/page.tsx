@@ -49,7 +49,7 @@ export default function NewCallPage() {
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6">
+    <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
       <div className="text-lg font-semibold text-white">Start a call</div>
       <p className="mt-1 text-sm text-zinc-400">
         Paste a Google Form URL, enter your number, and Cauliform will call you.

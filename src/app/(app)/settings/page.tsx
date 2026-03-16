@@ -7,7 +7,7 @@ export default function SettingsPage() {
   const firebaseReady = useMemo(() => isFirebaseConfigured(), []);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6">
+    <div className="rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur p-6 animate-fade-up">
       <div className="text-lg font-semibold text-white">Settings</div>
       <p className="mt-1 text-sm text-zinc-400">
         Configure integrations and environment variables.

@@ -64,12 +64,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <nav className="space-y-1">
               <NavLink href="/dashboard" label="Dashboard" />
+              <NavLink href="/campaigns" label="Campaigns" />
+              <NavLink href="/saved-forms" label="Saved Forms" />
+              <NavLink href="/sessions" label="Sessions" />
+              <NavLink href="/contacts" label="Contacts" />
+              <NavLink href="/knowledge" label="Knowledge" />
+              <NavLink href="/prompts" label="Prompts" />
+              <NavLink href="/alerts" label="Alerts" />
+              <NavLink href="/integrations" label="Integrations" />
+              <NavLink href="/team" label="Team" />
+              <NavLink href="/billing" label="Billing / Usage" />
               <NavLink href="/new-call" label="Start a Call" />
               <NavLink href="/settings" label="Settings" />
+              <NavLink href="/help" label="Help" />
+              <NavLink href="/about" label="Made by" />
               <NavLink href="/marketing" label="Landing" />
             </nav>
 
-            <div className="mt-4 border-t border-white/10 pt-4">
+            <div className="mt-4 border-t border-white/10 pt-4 space-y-3 text-xs text-zinc-500">
               <button
                 onClick={async () => {
                   await logout();
@@ -79,12 +91,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               >
                 Log out
               </button>
+              <p className="leading-snug">
+                Support:{" "}
+                <a
+                  href="mailto:prestonjaysusanto@gmail.com"
+                  className="text-zinc-300 hover:text-white"
+                >
+                  prestonjaysusanto@gmail.com
+                </a>
+              </p>
+              <div className="rounded-xl border border-rose-500/25 bg-gradient-to-b from-rose-500/15 to-transparent p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-semibold tracking-[0.2em] text-rose-200 uppercase">
+                    Cauliform Pro
+                  </div>
+                  <div className="text-[10px] font-semibold text-zinc-200 bg-white/10 border border-white/10 rounded-full px-2 py-0.5">
+                    $23.99/mo
+                  </div>
+                </div>
+                <div className="mt-2 text-[11px] text-zinc-300 leading-snug">
+                  Multi-agent calling, active recall memory, and smarter session analytics.
+                </div>
+                <ul className="mt-2 space-y-1 text-[11px] text-zinc-300">
+                  <li>• Multiple live agents</li>
+                  <li>• Active recall + autofill</li>
+                  <li>• Reliability & retry controls</li>
+                </ul>
+              </div>
             </div>
           </div>
         </aside>
 
         <div className="flex-1">
-          <header className="mb-6 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur px-5 py-4">
+          <header className="mb-6 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/50 backdrop-blur px-5 py-4 animate-fade-down">
             <div>
               <div className="text-sm font-semibold text-white">
                 Build voice-first form experiences

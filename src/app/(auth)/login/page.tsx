@@ -16,7 +16,6 @@ export default function LoginPage() {
   const googleReady = useMemo(() => isFirebaseConfigured(), []);
 
   const [showPassword, setShowPassword] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,8 +49,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={cx("w-full max-w-md", darkMode && "dark")}>
-      <div className="rounded-2xl border border-white/10 bg-zinc-900/70 backdrop-blur p-8 shadow-2xl">
+    <div className="w-full max-w-md">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/70 backdrop-blur p-8 shadow-2xl animate-fade-up">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">
@@ -61,16 +60,9 @@ export default function LoginPage() {
               Welcome back
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Log in to manage voice sessions and forms.
+              Log in to manage AI phone calls and survey sessions.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setDarkMode((v) => !v)}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/10"
-          >
-            {darkMode ? "Dark" : "Light"}
-          </button>
         </div>
 
         {error && (
@@ -169,9 +161,18 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
-          © {new Date().getFullYear()} Cauliform. Voice-first form completion.
-        </p>
+        <div className="mt-6 text-center text-xs text-zinc-600 space-y-1">
+          <p>© {new Date().getFullYear()} Cauliform. Voice-first form completion.</p>
+          <p>
+            Support:{" "}
+            <a
+              href="mailto:prestonjaysusanto@gmail.com"
+              className="text-rose-300 hover:text-rose-200"
+            >
+              prestonjaysusanto@gmail.com
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
