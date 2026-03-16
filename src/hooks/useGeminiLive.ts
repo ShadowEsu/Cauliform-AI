@@ -52,6 +52,8 @@ export function useGeminiLive({
   const nextPlayTimeRef = useRef(0);
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
+  const pendingSubmitTextRef = useRef("");
+  const toolCallReceivedRef = useRef(false);
 
   const log = useCallback(
     (msg: string) => {
@@ -252,6 +254,7 @@ export function useGeminiLive({
                 if (part.text) {
                   log(`Agent text: ${part.text}`);
                   onTranscript?.("agent", part.text);
+                  pendingSubmitTextRef.current += " " + part.text;
                 }
               }
             }
@@ -265,14 +268,29 @@ export function useGeminiLive({
               onTranscript?.("agent", data.serverContent.outputTranscript);
             }
 
-            // Log turn completion
+            // On turn completion, check if tool call was expected but didn't come
             if (data.serverContent?.turnComplete) {
               log("Agent turn complete");
+              const text = pendingSubmitTextRef.current.toLowerCase();
+              const mentionsSubmit = text.includes("submit_form") || text.includes("submitting") || text.includes("submit the form") || text.includes("initiating form submission");
+
+              if (mentionsSubmit && !toolCallReceivedRef.current) {
+                log("FALLBACK: Agent mentioned submitting but no tool call received. Sending explicit tool call request...");
+                // Ask Gemini explicitly to call the tool
+                ws.send(JSON.stringify({
+                  clientContent: {
+                    turns: [{ role: "user", parts: [{ text: "Please call the submit_form function now with the answers you collected. Do not respond with text — just call the function." }] }],
+                    turnComplete: true,
+                  },
+                }));
+              }
+              pendingSubmitTextRef.current = "";
             }
           }
 
           // Handle tool calls from Gemini
           if (data.toolCall) {
+            toolCallReceivedRef.current = true;
             log(`Tool call received: ${JSON.stringify(data.toolCall).slice(0, 500)}`);
             const functionCalls = data.toolCall.functionCalls;
             if (functionCalls) {
