@@ -7,6 +7,7 @@ export interface Question {
   required: boolean;
   options?: string[];
   description?: string;
+  entryId?: number; // Google Forms entry ID for submission
 }
 
 export type QuestionType =

@@ -127,11 +127,13 @@ function parseFormDataStructure(data: any[]): Question[] {
     if (!Array.isArray(item) || item.length < 2) continue;
 
     // Each item is: [id, title, description, typeCode, [[entryId, options, ...]], ...]
+    const entryId = item[4]?.[0]?.[0] as number | undefined;
     const question: Question = {
       id: String(item[0] || Math.random()),
       title: String(item[1] || ""),
       type: mapQuestionType(Number(item[3]) || 0),
       required: Boolean(item[4]?.[0]?.[2]),
+      entryId: entryId,
       options: [],
     };
 
