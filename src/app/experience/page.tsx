@@ -21,7 +21,8 @@ export default function ExperiencePage() {
   const [error, setError] = useState("");
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
-  const [showDebug, setShowDebug] = useState(false);
+  const [showInternal, setShowInternal] = useState(false);
+  const [showTestGuide, setShowTestGuide] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState<"idle" | "submitting" | "success" | "failed">("idle");
   const [agentStreamUrl, setAgentStreamUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -266,15 +267,24 @@ export default function ExperiencePage() {
 
             {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
 
-            {/* Debug toggle */}
-            <button
-              onClick={() => setShowDebug(!showDebug)}
-              className="mt-6 text-xs text-stone-400 hover:text-stone-600 transition"
-            >
-              {showDebug ? "Hide" : "Show"} details
-            </button>
+            {/* Toggles */}
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => { setShowInternal(!showInternal); if (!showInternal) setShowTestGuide(false); }}
+                className={`text-xs px-3 py-1.5 rounded-lg transition ${showInternal ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}
+              >
+                How it works internally
+              </button>
+              <button
+                onClick={() => { setShowTestGuide(!showTestGuide); if (!showTestGuide) setShowInternal(false); }}
+                className={`text-xs px-3 py-1.5 rounded-lg transition ${showTestGuide ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}
+              >
+                How to test it
+              </button>
+            </div>
 
-            {showDebug && (
+            {/* ─── How it works internally ─── */}
+            {showInternal && (
               <div className="w-full mt-3 space-y-3">
                 {/* Browser embed */}
                 {agentStreamUrl && (
@@ -285,7 +295,7 @@ export default function ExperiencePage() {
                         <div className="w-2 h-2 rounded-full bg-yellow-400" />
                         <div className="w-2 h-2 rounded-full bg-green-400" />
                       </div>
-                      <span className="text-xs text-stone-500">AI Agent — Live View</span>
+                      <span className="text-xs text-stone-500">AI Agent — Live Browser View</span>
                       {stage === "submitting" && <div className="ml-auto w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
                     </div>
                     <iframe
@@ -303,7 +313,7 @@ export default function ExperiencePage() {
                   <p className="text-xs font-medium text-stone-400 mb-2">Transcript</p>
                   <div ref={transcriptRef} className="h-36 overflow-y-auto space-y-1 text-sm">
                     {transcript.length === 0 ? (
-                      <p className="text-stone-300 text-xs">Waiting...</p>
+                      <p className="text-stone-300 text-xs">Transcript appears here during conversation...</p>
                     ) : transcript.map((e, i) => (
                       <div key={i} className={e.role === "agent" ? "text-amber-800" : "text-blue-800"}>
                         <span className="text-stone-400 text-xs">{e.timestamp.toLocaleTimeString()} </span>
@@ -317,13 +327,113 @@ export default function ExperiencePage() {
                 {/* Logs */}
                 <div className="bg-stone-900 rounded-xl p-3 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-medium text-stone-500">Logs</p>
+                    <p className="text-xs font-medium text-stone-500">Debug Logs</p>
                     <button onClick={() => navigator.clipboard.writeText(logs.join("\n"))} className="text-xs text-stone-600 hover:text-stone-400">Copy</button>
                   </div>
                   <div ref={logsRef} className="h-32 overflow-y-auto space-y-0.5 font-mono text-xs">
                     {logs.map((l, i) => (
                       <p key={i} className={l.includes("ERROR") || l.includes("error") ? "text-red-400" : l.includes("===") || l.includes("Submitted") ? "text-green-400" : "text-stone-500"}>{l}</p>
                     ))}
+                  </div>
+                </div>
+
+                {/* Architecture */}
+                <div className="bg-white/80 rounded-xl border border-stone-200 p-4 shadow-sm text-xs text-stone-600 space-y-2">
+                  <p className="font-medium text-stone-700">Architecture</p>
+                  <div className="font-mono space-y-1">
+                    <p>1. Browser captures mic audio (16kHz PCM)</p>
+                    <p>2. Audio streams via WebSocket to Gemini Live API</p>
+                    <p>3. Gemini responds with voice (24kHz PCM) + text</p>
+                    <p>4. Agent asks form questions conversationally</p>
+                    <p>5. On confirmation, Gemini calls submit_form tool</p>
+                    <p>6. AI browser agent fills & submits the Google Form</p>
+                    <p>7. Live browser view shows the agent in action</p>
+                  </div>
+                  <div className="pt-2 border-t border-stone-200 space-y-1 font-mono">
+                    <p className="text-stone-500">Model: gemini-2.5-flash-native-audio-latest</p>
+                    <p className="text-stone-500">Audio: PCM 16kHz in / 24kHz out</p>
+                    <p className="text-stone-500">Tools: submit_form (function calling)</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── How to test it ─── */}
+            {showTestGuide && (
+              <div className="w-full mt-3">
+                <div className="bg-white/80 rounded-xl border border-stone-200 p-4 shadow-sm text-sm text-stone-700 space-y-4">
+                  <p className="font-medium text-stone-800">Quick Test Guide</p>
+
+                  <div className="space-y-3">
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                      <div>
+                        <p className="font-medium">Copy this test form URL:</p>
+                        <button
+                          onClick={() => {
+                            const url = "https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform";
+                            navigator.clipboard.writeText(url);
+                            setFormUrl(url);
+                          }}
+                          className="mt-1 text-xs bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-lg transition text-stone-600 font-mono"
+                        >
+                          Click to copy & paste
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                      <div>
+                        <p className="font-medium">Click &quot;Start Conversation&quot;</p>
+                        <p className="text-xs text-stone-500">Allow microphone access when prompted</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                      <div>
+                        <p className="font-medium">Answer 3 questions by voice:</p>
+                        <ul className="text-xs text-stone-500 mt-1 space-y-0.5 list-disc list-inside">
+                          <li>What&apos;s your name?</li>
+                          <li>How old are you?</li>
+                          <li>What grade are you? (Freshman/Sophomore/Junior/Senior)</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                      <div>
+                        <p className="font-medium">Confirm & submit</p>
+                        <p className="text-xs text-stone-500">Cauli summarizes your answers and asks for confirmation. Say &quot;yes&quot; to submit.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                      <div>
+                        <p className="font-medium">Verify submission</p>
+                        <p className="text-xs text-stone-500">
+                          Check the{" "}
+                          <a
+                            href="https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewanalytics"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-amber-700 hover:text-amber-900"
+                          >
+                            form responses
+                          </a>
+                          {" "}to see your submitted answers.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-stone-200">
+                    <p className="text-xs text-stone-500">
+                      Tip: Toggle &quot;How it works internally&quot; to watch the AI agent fill out the form in real-time.
+                    </p>
                   </div>
                 </div>
               </div>
