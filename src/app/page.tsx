@@ -34,6 +34,7 @@ function HomeContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setDebugInfo("");
 
     if (!formUrl || !phoneNumber) {
       setError("Please fill in all fields");

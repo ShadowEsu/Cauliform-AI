@@ -54,13 +54,17 @@ export async function POST(request: Request) {
       formTitle: formData.title,
       questionCount: formData.questions.length,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error starting call:", error);
-    const message = error instanceof Error ? error.message : String(error);
-    const code = (error as any)?.code;
-    const status = (error as any)?.status;
     return NextResponse.json(
-      { error: "Failed to start call", details: message, code, twilioStatus: status },
+      {
+        error: "Failed to start call",
+        details: error?.message || String(error),
+        code: error?.code,
+        twilioStatus: error?.status,
+        moreInfo: error?.moreInfo,
+        stack: error?.stack?.split("\n").slice(0, 5),
+      },
       { status: 500 }
     );
   }
