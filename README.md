@@ -8,8 +8,8 @@
   <em>Turn any Google Form into a phone call</em>
 </p>
 
-<p>LINKS: https://cauliform-ai-293051374734.us-west1.run.app</p>
-<p>https://cauliform-ai.base44.app</p>
+<p>App URL: https://cauliform-ai-293051374734.us-west1.run.app</p>
+<p>Web URL: https://cauliform-ai.base44.app</p>
 
 <p align="center">
   <a href="#the-problem">Problem</a> •
