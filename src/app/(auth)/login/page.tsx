@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers";
-import { isFirebaseConfigured } from "@/lib/env";
+import Image from "next/image";
 
 function cx(...v: Array<string | false | null | undefined>) {
   return v.filter(Boolean).join(" ");
@@ -13,7 +13,7 @@ function cx(...v: Array<string | false | null | undefined>) {
 export default function LoginPage() {
   const router = useRouter();
   const { signIn, signInWithGoogle } = useAuth();
-  const googleReady = useMemo(() => isFirebaseConfigured(), []);
+  const googleReady = true;
 
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,7 @@ export default function LoginPage() {
     try {
       await signIn({ email: formData.email, password: formData.password });
       router.replace("/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setBusy(false);
@@ -41,7 +41,7 @@ export default function LoginPage() {
     try {
       await signInWithGoogle();
       router.replace("/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       setError(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
       setBusy(false);
@@ -49,132 +49,125 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-md">
-      <div className="rounded-2xl border border-white/10 bg-zinc-900/70 backdrop-blur p-8 shadow-2xl animate-fade-up">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-              Cauliform
-            </div>
-            <h1 className="mt-1 text-2xl font-semibold text-white">
-              Welcome back
-            </h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Log in to manage AI phone calls and survey sessions.
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center mb-8">
+          <Link href="/">
+            <Image src="/logo-clean.png" alt="Cauliform" width={80} height={80} className="mb-3" />
+          </Link>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
+          <p className="text-gray-500 text-center mt-1 text-sm">
+            Sign in to continue your voice-powered form journey
+          </p>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-zinc-300 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="name@company.com"
-              className="w-full rounded-lg border border-white/10 bg-zinc-950/60 px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/60"
-              autoComplete="email"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm text-zinc-300">Password</label>
-              <Link
-                href="/forgot-password"
-                className="text-sm text-rose-300 hover:text-rose-200"
-              >
-                Forgot password?
-              </Link>
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
             </div>
-            <div className="relative">
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Email Address
+              </label>
               <input
-                type={showPassword ? "text" : "password"}
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-white/10 bg-zinc-950/60 px-4 py-3 pr-12 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/60"
-                autoComplete="current-password"
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="name@example.com"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                autoComplete="email"
               />
-              <button
-                type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-200 hover:bg-white/10"
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
             </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-gray-700">Password</label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-amber-600 hover:text-amber-700"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 pr-12 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.05 10.05 0 014.138-4.403m2.454-1.314A10.044 10.044 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21m-2.101-2.101L3 3" /></svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={busy}
+              className={cx(
+                "w-full rounded-xl bg-gray-900 px-4 py-3 font-semibold text-white transition flex items-center justify-center gap-2",
+                busy ? "opacity-70 cursor-not-allowed" : "hover:bg-gray-800"
+              )}
+            >
+              {busy ? "Signing in..." : "Login"}
+              {!busy && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>}
+            </button>
+          </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+              OR CONTINUE WITH
+            </span>
+            <div className="h-px flex-1 bg-gray-200" />
           </div>
 
           <button
-            type="submit"
-            disabled={busy}
-            className={cx(
-              "w-full rounded-lg bg-rose-600 px-4 py-3 font-semibold text-white transition",
-              busy ? "opacity-70" : "hover:bg-rose-500"
-            )}
+            type="button"
+            disabled={busy || !googleReady}
+            onClick={handleGoogle}
+            className="w-full rounded-xl border border-gray-200 bg-white py-3 font-medium text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-2"
           >
-            {busy ? "Signing in…" : "Login →"}
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Google
           </button>
-        </form>
 
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-white/10" />
-          <span className="text-xs font-semibold tracking-[0.2em] text-zinc-500">
-            OR CONTINUE WITH
-          </span>
-          <div className="h-px flex-1 bg-white/10" />
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="font-semibold text-amber-600 hover:text-amber-700">
+              Sign up
+            </Link>
+          </p>
         </div>
 
-        <button
-          type="button"
-          disabled={busy || !googleReady}
-          onClick={handleGoogle}
-          className={cx(
-            "w-full rounded-lg border border-white/10 bg-white/5 py-3 font-semibold text-zinc-100 hover:bg-white/10 transition",
-            (!googleReady || busy) && "opacity-70 cursor-not-allowed"
-          )}
-          title={
-            googleReady
-              ? "Sign in with Google"
-              : "Add Firebase env vars to enable Google sign-in"
-          }
-        >
-          Continue with Google
-        </button>
-
-        <p className="mt-6 text-center text-sm text-zinc-400">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-rose-300 hover:text-rose-200">
-            Sign up
-          </Link>
-        </p>
-
-        <div className="mt-6 text-center text-xs text-zinc-600 space-y-1">
-          <p>© {new Date().getFullYear()} Cauliform. Voice-first form completion.</p>
-          <p>
-            Support:{" "}
-            <a
-              href="mailto:prestonjaysusanto@gmail.com"
-              className="text-rose-300 hover:text-rose-200"
-            >
-              prestonjaysusanto@gmail.com
-            </a>
-          </p>
+        <div className="mt-8 text-center text-xs text-gray-400">
+          <p>© {new Date().getFullYear()} Cauliform. Built with Gemini Live API.</p>
         </div>
       </div>
     </div>
   );
 }
-
