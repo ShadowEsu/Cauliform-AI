@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
 import { createFormAgentPrompt, getFormTools } from "@/lib/prompts";
 import type { FormData } from "@/lib/types";
+import { useAuth } from "@/app/providers";
 
 interface TranscriptEntry {
   role: "user" | "agent";
@@ -16,6 +17,7 @@ interface TranscriptEntry {
 type AppState = "input" | "connecting" | "conversation" | "ended";
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [formUrl, setFormUrl] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [formData, setFormData] = useState<FormData | null>(null);
@@ -41,11 +43,15 @@ export default function HomePage() {
 
   // Fetch API key from server
   useEffect(() => {
+    // If user is not logged in, we can't get the token (protected API)
+    if (!user) return;
+
+    // Use session token if available for authentication
     fetch("/api/gemini-token")
       .then((r) => r.json())
       .then((d) => { if (d.key) setApiKey(d.key); })
       .catch(() => {});
-  }, []);
+  }, [user]);
 
   const handleTranscript = useCallback((role: "user" | "agent", text: string) => {
     setTranscript((prev) => [...prev, { role, text, timestamp: new Date() }]);
@@ -159,6 +165,7 @@ export default function HomePage() {
   }, [status]);
 
   const handleStart = async () => {
+    if (!user) { setError("Please log in to use the voice agent"); return; }
     if (!formUrl) { setError("Please enter a Google Form URL"); return; }
     setError("");
     setTranscript([]);
@@ -183,9 +190,10 @@ export default function HomePage() {
 
       // Fetch user profile if phone number provided
       let profileResponses: Record<string, string> = {};
-      if (phoneNumber) {
+      const targetPhone = phoneNumber || "";
+      if (targetPhone) {
         try {
-          const profileRes = await fetch(`/api/user-profile?phone=${encodeURIComponent(phoneNumber)}`);
+          const profileRes = await fetch(`/api/user-profile?phone=${encodeURIComponent(targetPhone)}`);
           const profileData = await profileRes.json();
           if (profileData.profile?.commonResponses) {
             profileResponses = profileData.profile.commonResponses;
@@ -226,255 +234,301 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        {/* Logo + Title */}
-        <div className="flex flex-col items-center mb-8">
-          <Image src="/logo-clean.png" alt="Cauliform" width={100} height={100} className="mb-3" />
-          <h1 className="text-3xl font-bold text-gray-900">Cauliform</h1>
-          <p className="text-gray-500 text-center mt-1 text-sm">
-            Fill out any Google Form with your voice
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-amber-50/50 to-white flex flex-col items-center p-4">
+      {/* Navigation Header */}
+      <nav className="w-full max-w-5xl flex items-center justify-between py-6 mb-8">
+        <div className="flex items-center gap-2">
+          <Image src="/logo-clean.png" alt="Cauliform" width={32} height={32} />
+          <span className="font-bold text-xl tracking-tight text-gray-900">Cauliform</span>
         </div>
+        <div className="flex items-center gap-4">
+          {user ? (
+            <>
+              <Link href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Dashboard</Link>
+              <div className="h-4 w-px bg-gray-200" />
+              <span className="text-xs text-gray-400 font-medium hidden sm:inline">{user.email}</span>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Login</Link>
+              <Link href="/signup" className="text-sm font-semibold px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition shadow-sm">Sign Up</Link>
+            </>
+          )}
+        </div>
+      </nav>
 
-        {/* Input State */}
+      <div className="w-full max-w-xl">
+        {/* Hero Section */}
         {appState === "input" && (
-          <div className="space-y-4">
-            <input
-              type="url"
-              value={formUrl}
-              onChange={(e) => setFormUrl(e.target.value)}
-              placeholder="Paste a Google Form URL..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition text-gray-900"
-            />
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Phone number (optional — enables memory)"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition text-gray-900"
-            />
-            {error && <p className="text-red-600 text-sm">{error}</p>}
-            <button
-              onClick={handleStart}
-              disabled={!formUrl || !apiKey}
-              className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 disabled:bg-gray-300 transition flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-              </svg>
-              Start Voice Conversation
-            </button>
+          <div className="text-center mb-10 animate-fade-up">
+            <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-4 leading-tight">
+              Talk to your <br />
+              <span className="text-amber-600">Google Forms.</span>
+            </h2>
+            <p className="text-gray-500 text-lg max-w-md mx-auto mb-8">
+              Transform any form into a natural voice conversation. Hands-free, eyes-free, effort-free.
+            </p>
+          </div>
+        )}
 
-            {/* How to test it */}
-            <button
-              onClick={() => setShowTestGuide(!showTestGuide)}
-              className={`w-full text-xs px-3 py-2 rounded-xl transition ${showTestGuide ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-            >
-              {showTestGuide ? "Hide" : "How to test it"}
-            </button>
+        {/* Input State Card */}
+        {appState === "input" && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xl shadow-amber-900/5 mb-10 animate-fade-up">
+            <div className="space-y-4">
+              <div className="group relative">
+                <input
+                  type="url"
+                  value={formUrl}
+                  onChange={(e) => setFormUrl(e.target.value)}
+                  placeholder="Paste a Google Form URL..."
+                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition text-gray-900 pr-12"
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Phone number (enables memory)"
+                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition text-gray-900"
+                />
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg text-sm">
+                  <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={handleStart}
+                disabled={!formUrl || (user ? false : true)}
+                className="w-full py-4 px-6 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-lg shadow-gray-900/20"
+              >
+                {!user ? "Login to Start" : (
+                  <>
+                    <svg className="w-5 h-5 animate-pulse text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                    </svg>
+                    Launch Voice Agent
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setShowTestGuide(!showTestGuide)}
+                className="w-full text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-amber-600 transition pt-2"
+              >
+                {showTestGuide ? "Close Guide" : "New here? View Guide"}
+              </button>
+            </div>
 
             {showTestGuide && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm text-sm text-gray-700 space-y-3">
-                <div className="flex gap-3">
-                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                  <div>
-                    <p className="font-medium">Copy this test form URL:</p>
-                    <button
-                      onClick={() => {
-                        const url = "https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform";
-                        navigator.clipboard.writeText(url);
-                        setFormUrl(url);
-                      }}
-                      className="mt-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition text-gray-600 font-mono break-all leading-relaxed text-left"
-                    >
-                      https://docs.google.com/forms/d/e/1FAIpQLSeYpuyaG0XcrMvoxGugjTgsqafpGJyH5x5tQDJ7HSXNIyt8tQ/viewform
-                      <span className="ml-2 text-amber-600">(tap to copy)</span>
-                    </button>
+              <div className="mt-8 space-y-4 border-t border-gray-100 pt-6 animate-fade-down">
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">1</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">Paste your form URL</p>
+                    <p className="text-xs text-gray-500 mt-1">We&apos;ll analyze the questions instantly.</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                  <p className="font-medium">Click &quot;Start Voice Conversation&quot; and allow mic access</p>
-                </div>
-                <div className="flex gap-3">
-                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                  <div>
-                    <p className="font-medium">Answer 3 questions by voice:</p>
-                    <ul className="text-xs text-gray-500 mt-1 space-y-0.5 list-disc list-inside">
-                      <li>What&apos;s your name?</li>
-                      <li>How old are you?</li>
-                      <li>What grade? (Freshman/Sophomore/Junior/Senior)</li>
-                    </ul>
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">2</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">Authorize the Agent</p>
+                    <p className="text-xs text-gray-500 mt-1">Our agent needs microphone access to talk to you.</p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <span className="shrink-0 w-6 h-6 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                  <p className="font-medium">Say &quot;yes&quot; when Cauli asks to confirm &amp; submit</p>
-                </div>
-                <div className="flex gap-3">
-                  <span className="shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-xs font-bold">5</span>
-                  <div>
-                    <p className="font-medium">Verify your submission:</p>
-                    <a
-                      href="https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s/edit?usp=sharing"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition text-amber-700 font-mono break-all leading-relaxed block"
-                    >
-                      https://docs.google.com/spreadsheets/d/1U6SnVkcx1trpYpRAf6ePO_CagpUHWO5TJoAyWDUqp4s
-                    </a>
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold shrink-0">3</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">Submit with your voice</p>
+                    <p className="text-xs text-gray-500 mt-1">Review your answers and say &quot;Confirm&quot; to submit.</p>
                   </div>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Feature Grid */}
+        {appState === "input" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-20">
+            <div className="p-5 bg-white rounded-2xl border border-gray-200">
+              <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center mb-3">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              </div>
+              <h4 className="font-bold text-gray-900 mb-1">Real-time Gemini Live</h4>
+              <p className="text-xs text-gray-500 leading-relaxed">Latency-free voice interactions powered by Google&apos;s latest multimodal models.</p>
+            </div>
+            <div className="p-5 bg-white rounded-2xl border border-gray-200">
+              <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-3">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+              </div>
+              <h4 className="font-bold text-gray-900 mb-1">Cyber Defense Layers</h4>
+              <p className="text-xs text-gray-500 leading-relaxed">Rate limiting, encrypted memory, and secure auth keep your form data private.</p>
+            </div>
           </div>
         )}
 
         {/* Connecting State */}
         {appState === "connecting" && (
-          <div className="text-center py-8">
-            <div className="animate-spin w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-gray-600">Parsing form & connecting...</p>
+          <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 shadow-xl shadow-amber-900/5 animate-pulse">
+            <div className="relative w-16 h-16 mx-auto mb-6">
+              <div className="absolute inset-0 border-4 border-amber-100 rounded-full" />
+              <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Connecting to Cauli...</h3>
+            <p className="text-gray-500 text-sm">Analyzing form structure and warming up the agent.</p>
           </div>
         )}
 
         {/* Conversation State */}
         {(appState === "conversation" || appState === "ended") && (
-          <div className="space-y-4">
-            {/* Form info */}
+          <div className="space-y-4 animate-fade-up">
+            {/* Form info header */}
             {formData && (
-              <div className="px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
-                <p className="text-sm font-medium text-amber-900">{formData.title}</p>
-                <p className="text-xs text-amber-700">{formData.questions.length} questions</p>
+              <div className="px-5 py-4 bg-gray-900 text-white rounded-2xl shadow-lg flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">Active Session</p>
+                  <p className="font-bold truncate max-w-[200px]">{formData.title}</p>
+                </div>
+                <div className="text-right">
+                   <p className="text-xs text-gray-400">{formData.questions.length} Fields</p>
+                   {status === "active" && <div className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse ml-2" />}
+                </div>
               </div>
             )}
 
-            {/* Status + controls */}
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${
-                status === "active" ? (isSpeaking ? "bg-green-500 animate-pulse" : "bg-green-500") :
-                status === "connecting" ? "bg-yellow-500 animate-pulse" :
-                "bg-gray-400"
-              }`} />
-              <span className="text-sm text-gray-600">
-                {status === "active" && (isSpeaking ? "Agent speaking..." : "Listening...")}
-                {status === "ended" && "Conversation ended"}
-                {status === "error" && "Error"}
-              </span>
-              <div className="ml-auto flex gap-2">
-                {appState === "conversation" && (
-                  <button onClick={handleEnd} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition">
-                    End
+            {/* Conversation Area */}
+            <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-2xl shadow-amber-900/5 min-h-[400px] flex flex-col">
+              {/* Status Indicator */}
+              <div className="flex items-center justify-center gap-2 mb-10">
+                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 ${
+                  status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${status === "active" ? "bg-green-500" : "bg-gray-400"}`} />
+                  {status === "active" ? (isSpeaking ? "Agent Speaking" : "Listening...") : "Connection Closed"}
+                </div>
+              </div>
+
+              {/* Central Interaction Point */}
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                {status === "active" ? (
+                  <>
+                    <div className="flex items-end justify-center gap-1.5 h-16 mb-8">
+                      {Array.from({ length: 32 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`w-1.5 rounded-full transition-all duration-150 ${isSpeaking ? "bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]" : "bg-gray-200"}`}
+                          style={{ height: isSpeaking ? `${Math.random() * 60 + 10}%` : "15%" }}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-gray-500 italic max-w-xs">&quot;{transcript[transcript.length - 1]?.text || "Hello! How can I help you today?"}&quot;</p>
+                  </>
+                ) : (
+                  <div className="text-gray-400 py-10">
+                    <svg className="w-16 h-16 mx-auto mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    <p>Conversation Ended</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="mt-auto pt-8 flex items-center justify-center gap-4">
+                 {appState === "conversation" && (
+                  <button
+                    onClick={handleEnd}
+                    className="group px-8 py-4 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+                  >
+                    <div className="w-2 h-2 bg-red-600 rounded-full group-hover:bg-white" />
+                    End Call
                   </button>
                 )}
                 {appState === "ended" && (
-                  <button onClick={handleReset} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
-                    New Form
+                  <button onClick={handleReset} className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition shadow-lg active:scale-95">
+                    Start New Call
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Audio visualizer */}
-            {status === "active" && (
-              <div className="flex items-center justify-center gap-1 h-10">
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-1 rounded-full transition-all duration-150 ${isSpeaking ? "bg-amber-500" : "bg-gray-300"}`}
-                    style={{ height: isSpeaking ? `${Math.random() * 28 + 6}px` : "4px" }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Submission status */}
+            {/* Submission status alert */}
             {submissionStatus !== "idle" && (
-              <div className={`px-4 py-3 rounded-xl text-sm font-medium ${
-                submissionStatus === "submitting" ? "bg-yellow-50 text-yellow-800 border border-yellow-200" :
+              <div className={`px-6 py-4 rounded-2xl text-sm font-bold flex items-center gap-3 animate-bounce ${
+                submissionStatus === "submitting" ? "bg-amber-50 text-amber-800 border border-amber-200" :
                 submissionStatus === "success" ? "bg-green-50 text-green-800 border border-green-200" :
                 "bg-red-50 text-red-800 border border-red-200"
               }`}>
-                {submissionStatus === "submitting" && "AI agent is submitting your form..."}
-                {submissionStatus === "success" && "Form submitted successfully!"}
-                {submissionStatus === "failed" && "Submission failed. Check debug logs."}
+                {submissionStatus === "submitting" && <div className="w-4 h-4 border-2 border-amber-800 border-t-transparent rounded-full animate-spin" />}
+                {submissionStatus === "submitting" && "AI agent is submitting your form responses..."}
+                {submissionStatus === "success" && "✓ Form successfully submitted to Google!"}
+                {submissionStatus === "failed" && "✕ Submission failed. Review logs for details."}
               </div>
             )}
 
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            {/* Collapsible Debug Tools */}
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+               <button
+                onClick={() => setShowDebug(!showDebug)}
+                className="w-full px-5 py-3 flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition"
+               >
+                 <span>Developer Debug Console</span>
+                 <svg className={`w-4 h-4 transition ${showDebug ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+               </button>
 
-            {/* Debug toggle */}
-            <button
-              onClick={() => setShowDebug(!showDebug)}
-              className="text-xs text-gray-400 hover:text-gray-600 transition"
-            >
-              {showDebug ? "Hide" : "Show"} debug info
-            </button>
-
-            {showDebug && (
-              <div className="space-y-3">
-                {/* Live browser view */}
-                {agentStreamUrl && (
-                  <div className="rounded-xl overflow-hidden border border-gray-200">
-                    <div className="bg-gray-100 px-3 py-1.5 flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 rounded-full bg-red-400" />
-                        <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                        <div className="w-2 h-2 rounded-full bg-green-400" />
+               {showDebug && (
+                 <div className="p-5 border-t border-gray-100 bg-gray-50/50 space-y-4">
+                    {/* Live Browser (if submitting) */}
+                    {agentStreamUrl && (
+                      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                        <div className="bg-gray-100 px-3 py-1.5 flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Autonomous Browser Agent</span>
+                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        </div>
+                        <iframe src={agentStreamUrl} className="w-full h-[300px]" title="AI Browser" />
                       </div>
-                      <span className="text-xs text-gray-500">AI Agent — Live Browser</span>
-                      {submissionStatus === "submitting" && <div className="ml-auto w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
+                    )}
+
+                    {/* Full Transcript */}
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Conversation Transcript</p>
+                       <div ref={transcriptRef} className="max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-xl p-3 text-xs space-y-2">
+                         {transcript.map((e, i) => (
+                           <div key={i} className={`flex gap-2 ${e.role === "agent" ? "text-amber-700" : "text-blue-700"}`}>
+                             <span className="font-bold shrink-0">{e.role === "agent" ? "Agent:" : "User:"}</span>
+                             <span>{e.text}</span>
+                           </div>
+                         ))}
+                       </div>
                     </div>
-                    <iframe
-                      src={agentStreamUrl}
-                      className="w-full bg-white"
-                      style={{ height: "350px" }}
-                      sandbox="allow-same-origin allow-scripts"
-                      title="AI Agent Browser View"
-                    />
-                  </div>
-                )}
 
-                {/* Transcript */}
-                <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-                  <p className="text-xs font-medium text-gray-500 mb-2">Transcript</p>
-                  <div ref={transcriptRef} className="h-40 overflow-y-auto space-y-1 text-sm">
-                    {transcript.length === 0 ? (
-                      <p className="text-gray-400 text-xs">Waiting for conversation...</p>
-                    ) : transcript.map((e, i) => (
-                      <div key={i} className={e.role === "agent" ? "text-amber-700" : "text-blue-700"}>
-                        <span className="text-gray-400 text-xs">{e.timestamp.toLocaleTimeString()} </span>
-                        <span className="font-medium">{e.role === "agent" ? "Cauli" : "You"}: </span>
-                        {e.text}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Debug logs */}
-                <div className="bg-gray-900 rounded-xl border border-gray-800 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-medium text-gray-500">Debug Logs</p>
-                    <button onClick={() => navigator.clipboard.writeText(logs.join("\n"))} className="text-xs text-gray-600 hover:text-gray-400">Copy</button>
-                  </div>
-                  <div ref={logsRef} className="h-40 overflow-y-auto space-y-0.5 font-mono text-xs">
-                    {logs.map((l, i) => (
-                      <p key={i} className={l.includes("ERROR") || l.includes("error") ? "text-red-400" : l.includes("===") ? "text-green-400" : "text-gray-500"}>{l}</p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                    {/* Internal Logs */}
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System Events</p>
+                       <div ref={logsRef} className="max-h-40 overflow-y-auto bg-gray-900 border border-gray-800 rounded-xl p-3 font-mono text-[10px] space-y-1">
+                          {logs.map((l, i) => (
+                            <p key={i} className={l.includes("ERROR") ? "text-red-400" : "text-gray-500"}>{l}</p>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+               )}
+            </div>
           </div>
         )}
 
-        {/* Footer */}
-        <div className="text-center text-gray-400 text-xs mt-8 space-y-1">
-          <p>Powered by Gemini Live API</p>
-          <Link href="/about" className="text-amber-600 hover:text-amber-800 underline">
-            About Cauliform
+        {/* Footer info */}
+        <div className="text-center mt-12 pb-10">
+          <Link href="/about" className="text-xs font-bold text-gray-400 hover:text-amber-600 transition uppercase tracking-widest">
+            Project Architecture & Team
           </Link>
         </div>
       </div>
