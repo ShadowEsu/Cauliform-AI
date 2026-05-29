@@ -179,6 +179,15 @@ function AcctPrivacy() {
     <PaneCard title="Privacy & data" sub="Your data stays yours.">
       <p style={{ color: "var(--fg-soft)", fontSize: 14, lineHeight: 1.55, margin: "0 0 16px" }}>
         Voice audio is not stored. Only form answers you confirm are saved to your account history.
+        Read our full{" "}
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-deep)" }}>
+          Privacy Policy
+        </a>{" "}
+        and{" "}
+        <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-deep)" }}>
+          Terms of Service
+        </a>
+        .
       </p>
       <button type="button" className="ghost-btn danger">
         Delete all saved memory

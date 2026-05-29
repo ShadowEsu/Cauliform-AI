@@ -115,7 +115,15 @@ export function LoginScreen({ onGoogle, onEmail, error }: Props) {
         )}
 
         <div className="login-foot">
-          By continuing you agree to our <a href="/about">terms</a> and <a href="/about">privacy policy</a>.
+          By continuing you agree to our{" "}
+          <a href="/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+          .
         </div>
       </div>
     </div>
