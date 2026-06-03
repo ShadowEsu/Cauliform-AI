@@ -5,6 +5,9 @@ import Image from "next/image";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
 import { createFormAgentPrompt, getFormTools } from "@/lib/prompts";
 import type { FormData } from "@/lib/types";
+import { VoiceVisualizer } from "@/components/voice-visualizer";
+import { QuickFormChips } from "@/components/quick-form-chips";
+import { addSession, saveFormEntry } from "@/lib/local-store";
 
 interface TranscriptEntry {
   role: "user" | "agent";
@@ -45,6 +48,9 @@ export default function ExperiencePage() {
 
   const handleError = useCallback((err: string) => setError(err), []);
   const handleLog = useCallback((msg: string) => setLogs((prev) => [...prev, msg]), []);
+
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
 
   const handleFormSubmit = useCallback(async (answers: { questionTitle: string; answer: string }[]) => {
     setSubmissionStatus("submitting");
@@ -92,6 +98,12 @@ export default function ExperiencePage() {
               setSubmissionStatus("success");
               setStage("done");
               log(`Submitted in ${steps} steps`);
+              addSession({
+                formTitle: formDataRef.current?.title || "Unknown Form",
+                formUrl: formUrlRef.current,
+                answerCount: answers.length,
+                status: "submitted",
+              });
             }
             if (event.type === "ERROR" || event.error) {
               setSubmissionStatus("failed");
@@ -144,6 +156,11 @@ export default function ExperiencePage() {
       if (!res.ok) throw new Error(data.error || "Failed to parse form");
       setFormData(data.data);
       handleLog(`"${data.data.title}" — ${data.data.questions.length} questions`);
+      saveFormEntry({
+        url: formUrl,
+        title: data.data.title,
+        questionCount: data.data.questions.length,
+      });
 
       const prompt = createFormAgentPrompt(data.data.title, data.data.questions);
       await connect(prompt, getFormTools());
@@ -165,7 +182,7 @@ export default function ExperiencePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: "linear-gradient(180deg, #f5e6d3 0%, #fdf6ee 50%, #fff 100%)" }}>
+    <div className="min-h-screen-safe flex flex-col items-center justify-center px-4 pb-safe" style={{ background: "linear-gradient(180deg, #f5e6d3 0%, #fdf6ee 50%, #fff 100%)" }}>
       <div className="w-full max-w-md">
 
         {/* ─── Landing ─── */}
@@ -173,7 +190,10 @@ export default function ExperiencePage() {
           <div className="flex flex-col items-center">
             <Image src="/logo-clean.png" alt="Cauli" width={140} height={140} className="mb-2 drop-shadow-lg" />
             <h1 className="text-4xl font-bold text-stone-800 tracking-tight">Cauliform AI</h1>
-            <p className="text-stone-500 mt-1 mb-8 text-center">Fill out any Google Form with your voice</p>
+            <p className="text-stone-500 mt-1 mb-4 text-center">Fill out any Google Form with your voice — no login</p>
+            <div className="mb-6 w-full">
+              <QuickFormChips onSelect={(u) => setFormUrl(u)} />
+            </div>
 
             <div className="w-full space-y-3">
               <input
@@ -286,18 +306,7 @@ export default function ExperiencePage() {
 
             {/* Visualizer */}
             {status === "active" && (
-              <div className="flex items-center justify-center gap-[3px] h-16 mb-4">
-                {Array.from({ length: 32 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-[3px] rounded-full transition-all duration-100"
-                    style={{
-                      height: isSpeaking ? `${Math.random() * 40 + 8}px` : "4px",
-                      backgroundColor: isSpeaking ? "#d97706" : "#d6d3d1",
-                    }}
-                  />
-                ))}
-              </div>
+              <VoiceVisualizer active speaking={isSpeaking} className="mb-4" bars={28} />
             )}
 
             {/* Status text */}

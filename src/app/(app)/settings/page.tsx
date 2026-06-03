@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isFirebaseConfigured } from "@/lib/env";
+import { getPrefs, setPrefs } from "@/lib/local-store";
 
 type ReliabilityConfig = {
   maxRetries: number;
@@ -35,8 +36,10 @@ export default function SettingsPage() {
     loadReliabilityConfig()
   );
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [defaultPhone, setDefaultPhone] = useState("");
 
   useEffect(() => {
+    setDefaultPhone(getPrefs().defaultPhone ?? "");
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reliability));
   }, [reliability]);
@@ -61,6 +64,32 @@ export default function SettingsPage() {
         Configure integrations and call reliability defaults. These settings are local to
         this browser for now.
       </p>
+
+      <div className="mt-6 rounded-xl border border-white/10 bg-zinc-950/40 p-4">
+        <div className="text-sm font-semibold text-white">Profile memory</div>
+        <p className="mt-1 text-sm text-zinc-400">
+          Default phone for autofill across forms. Used on voice and phone-call flows.
+        </p>
+        <div className="mt-3 flex flex-col sm:flex-row gap-2">
+          <input
+            type="tel"
+            value={defaultPhone}
+            onChange={(e) => setDefaultPhone(e.target.value)}
+            placeholder="+1 555 123 4567"
+            className="flex-1 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-white"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setPrefs({ defaultPhone: defaultPhone.trim() || undefined });
+              setSavedAt(new Date().toLocaleTimeString());
+            }}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-amber-400"
+          >
+            Save phone
+          </button>
+        </div>
+      </div>
 
       <div className="mt-6 grid gap-3 md:grid-cols-2">
         <div className="rounded-xl border border-white/10 bg-zinc-950/40 p-4">

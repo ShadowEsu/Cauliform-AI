@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const profile = await getProfileByPhone(phone);
-    return NextResponse.json({ profile });
+    const includeHistory = req.nextUrl.searchParams.get("history") === "1";
+    const history = includeHistory ? await getCallHistory(phone) : undefined;
+    return NextResponse.json({ profile, history });
   } catch (err: any) {
     console.error("Profile lookup error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

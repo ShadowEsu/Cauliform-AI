@@ -7,6 +7,15 @@ import { useGeminiLive } from "@/hooks/useGeminiLive";
 import { createFormAgentPrompt, getFormTools } from "@/lib/prompts";
 import type { FormData } from "@/lib/types";
 import { useAuth } from "@/app/providers";
+import { VoiceVisualizer } from "@/components/voice-visualizer";
+import { ProgressSteps } from "@/components/progress-steps";
+import { QuickFormChips } from "@/components/quick-form-chips";
+import {
+  addSession,
+  saveFormEntry,
+  setPrefs,
+  getPrefs,
+} from "@/lib/local-store";
 
 interface TranscriptEntry {
   role: "user" | "agent";
@@ -41,17 +50,26 @@ export default function HomePage() {
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
 
+  // Load prefs + URL param
+  useEffect(() => {
+    const prefs = getPrefs();
+    if (prefs.defaultPhone && !phoneNumber) setPhoneNumber(prefs.defaultPhone);
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get("url");
+    if (urlParam) setFormUrl(urlParam);
+  }, []);
+
   // Fetch API key from server
   useEffect(() => {
-    // If user is not logged in, we can't get the token (protected API)
     if (!user) return;
-
-    // Use session token if available for authentication
     fetch("/api/gemini-token")
       .then((r) => r.json())
       .then((d) => { if (d.key) setApiKey(d.key); })
       .catch(() => {});
   }, [user]);
+
+  const stepIndex =
+    appState === "input" ? 0 : appState === "connecting" ? 1 : appState === "conversation" ? 2 : submissionStatus === "success" ? 4 : 3;
 
   const handleTranscript = useCallback((role: "user" | "agent", text: string) => {
     setTranscript((prev) => [...prev, { role, text, timestamp: new Date() }]);
@@ -114,7 +132,14 @@ export default function HomePage() {
             if (event.type === "COMPLETE" || event.status === "COMPLETED") {
               setSubmissionStatus("success");
               log(`=== FORM SUBMITTED (${steps} steps) ===`);
-              // Save profile memory + call session
+              addSession({
+                formTitle: formDataRef.current?.title || "Unknown Form",
+                formUrl: formUrlRef.current,
+                phoneNumber: phoneRef.current || undefined,
+                questionCount: formDataRef.current?.questions.length,
+                answerCount: answers.length,
+                status: "submitted",
+              });
               if (phoneRef.current) {
                 fetch("/api/user-profile", {
                   method: "POST",
@@ -131,6 +156,12 @@ export default function HomePage() {
             }
             if (event.type === "ERROR" || event.error) {
               setSubmissionStatus("failed");
+              addSession({
+                formTitle: formDataRef.current?.title || "Unknown Form",
+                formUrl: formUrlRef.current,
+                phoneNumber: phoneRef.current || undefined,
+                status: "failed",
+              });
               log(`=== ERROR: ${event.error ?? event.message} ===`);
             }
           } catch { /* skip */ }
@@ -187,6 +218,12 @@ export default function HomePage() {
 
       setFormData(data.data);
       handleLog(`Parsed: "${data.data.title}" — ${data.data.questions.length} questions`);
+      setPrefs({ lastFormUrl: formUrl });
+      saveFormEntry({
+        url: formUrl,
+        title: data.data.title,
+        questionCount: data.data.questions.length,
+      });
 
       // Fetch user profile if phone number provided
       let profileResponses: Record<string, string> = {};
@@ -234,24 +271,26 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50/50 to-white flex flex-col items-center p-4">
+    <div className="min-h-screen-safe bg-gradient-to-b from-amber-50/50 via-white to-amber-50/30 flex flex-col items-center px-4 pt-4 pb-safe">
       {/* Navigation Header */}
       <nav className="w-full max-w-5xl flex items-center justify-between py-6 mb-8">
         <div className="flex items-center gap-2">
           <Image src="/logo-clean.png" alt="Cauliform" width={32} height={32} />
           <span className="font-bold text-xl tracking-tight text-gray-900">Cauliform</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link href="/experience" className="text-xs sm:text-sm font-medium text-amber-700 hover:text-amber-900 transition">
+            Demo
+          </Link>
           {user ? (
             <>
-              <Link href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Dashboard</Link>
-              <div className="h-4 w-px bg-gray-200" />
-              <span className="text-xs text-gray-400 font-medium hidden sm:inline">{user.email}</span>
+              <Link href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition">App</Link>
+              <span className="text-xs text-gray-400 font-medium hidden sm:inline truncate max-w-[120px]">{user.email}</span>
             </>
           ) : (
             <>
               <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Login</Link>
-              <Link href="/signup" className="text-sm font-semibold px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition shadow-sm">Sign Up</Link>
+              <Link href="/signup" className="text-sm font-semibold px-3 sm:px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition shadow-sm">Sign Up</Link>
             </>
           )}
         </div>
@@ -265,9 +304,13 @@ export default function HomePage() {
               Talk to your <br />
               <span className="text-amber-600">Google Forms.</span>
             </h2>
-            <p className="text-gray-500 text-lg max-w-md mx-auto mb-8">
+            <p className="text-gray-500 text-lg max-w-md mx-auto mb-6">
               Transform any form into a natural voice conversation. Hands-free, eyes-free, effort-free.
             </p>
+            <ProgressSteps current={stepIndex} />
+            <div className="mt-6">
+              <QuickFormChips onSelect={(u) => setFormUrl(u)} />
+            </div>
           </div>
         )}
 
@@ -292,10 +335,19 @@ export default function HomePage() {
                 <input
                   type="tel"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="Phone number (enables memory)"
+                  onChange={(e) => {
+                    setPhoneNumber(e.target.value);
+                    if (e.target.value) setPrefs({ defaultPhone: e.target.value });
+                  }}
+                  placeholder="Phone (optional — remembers your answers)"
                   className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition text-gray-900"
                 />
+                {Object.keys(knownResponses).length > 0 && (
+                  <p className="mt-2 text-xs text-amber-700 font-medium flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                    {Object.keys(knownResponses).length} saved fields ready to confirm
+                  </p>
+                )}
               </div>
 
               {error && (
@@ -359,27 +411,33 @@ export default function HomePage() {
 
         {/* Feature Grid */}
         {appState === "input" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-20">
-            <div className="p-5 bg-white rounded-2xl border border-gray-200">
-              <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center mb-3">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-16">
+            {[
+              { icon: "🎙️", title: "Live voice", desc: "Talk naturally, interrupt anytime" },
+              { icon: "🧠", title: "Smart memory", desc: "Remembers name & email" },
+              { icon: "✅", title: "Confirm first", desc: "Never submits without yes" },
+              { icon: "📱", title: "Mobile ready", desc: "Add to home screen" },
+              { icon: "📞", title: "Phone calls", desc: "Twilio rings you" },
+              { icon: "⚡", title: "Auto submit", desc: "AI fills the real form" },
+            ].map((f) => (
+              <div key={f.title} className="p-4 bg-white rounded-2xl border border-gray-200 hover-lift transition">
+                <span className="text-xl">{f.icon}</span>
+                <h4 className="font-bold text-gray-900 text-sm mt-2 mb-0.5">{f.title}</h4>
+                <p className="text-[11px] text-gray-500 leading-snug">{f.desc}</p>
               </div>
-              <h4 className="font-bold text-gray-900 mb-1">Real-time Gemini Live</h4>
-              <p className="text-xs text-gray-500 leading-relaxed">Latency-free voice interactions powered by Google&apos;s latest multimodal models.</p>
-            </div>
-            <div className="p-5 bg-white rounded-2xl border border-gray-200">
-              <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-3">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-              </div>
-              <h4 className="font-bold text-gray-900 mb-1">Cyber Defense Layers</h4>
-              <p className="text-xs text-gray-500 leading-relaxed">Rate limiting, encrypted memory, and secure auth keep your form data private.</p>
-            </div>
+            ))}
           </div>
         )}
 
         {/* Connecting State */}
         {appState === "connecting" && (
-          <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 shadow-xl shadow-amber-900/5 animate-pulse">
+          <div className="mb-6">
+            <ProgressSteps current={1} />
+          </div>
+        )}
+
+        {appState === "connecting" && (
+          <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 shadow-xl shadow-amber-900/5">
             <div className="relative w-16 h-16 mx-auto mb-6">
               <div className="absolute inset-0 border-4 border-amber-100 rounded-full" />
               <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -422,16 +480,10 @@ export default function HomePage() {
               <div className="flex-1 flex flex-col items-center justify-center text-center">
                 {status === "active" ? (
                   <>
-                    <div className="flex items-end justify-center gap-1.5 h-16 mb-8">
-                      {Array.from({ length: 32 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`w-1.5 rounded-full transition-all duration-150 ${isSpeaking ? "bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]" : "bg-gray-200"}`}
-                          style={{ height: isSpeaking ? `${Math.random() * 60 + 10}%` : "15%" }}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-gray-500 italic max-w-xs">&quot;{transcript[transcript.length - 1]?.text || "Hello! How can I help you today?"}&quot;</p>
+                    <VoiceVisualizer active className="mb-8" speaking={isSpeaking} bars={28} />
+                    <p className="text-gray-500 italic max-w-xs text-sm px-2">
+                      &quot;{transcript[transcript.length - 1]?.text || "Hello! How can I help you today?"}&quot;
+                    </p>
                   </>
                 ) : (
                   <div className="text-gray-400 py-10">
