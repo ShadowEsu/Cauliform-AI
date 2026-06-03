@@ -12,3 +12,9 @@ export function isFirebaseConfigured() {
   );
 }
 
+export function isSupabaseConfigured() {
+  return Boolean(
+    getPublicEnv("NEXT_PUBLIC_SUPABASE_URL") &&
+      getPublicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  );
+}

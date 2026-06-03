@@ -1,0 +1,23 @@
+{
+  "name": "Cauliform",
+  "short_name": "Cauliform",
+  "description": "Talk your Google Forms in — voice-powered form filling",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#f2ede4",
+  "theme_color": "#f5efe1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/cauli-mascot.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-clean.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -6,9 +6,11 @@ import type { Question } from "../types";
 // This test connects to the real Gemini Live API via WebSocket
 // and verifies the complete form-filling conversation works.
 
-const API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyCyzJWvijamSMbAeZrmh8PW9YvA-LF0j-Q";
+const API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const MODEL = "gemini-2.5-flash-native-audio-latest";
-const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${API_KEY}`;
+const WS_URL = API_KEY
+  ? `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${API_KEY}`
+  : "";
 
 function connectAndChat(systemPrompt: string, userMessage: string): Promise<{
   connected: boolean;
@@ -104,7 +106,9 @@ function connectAndChat(systemPrompt: string, userMessage: string): Promise<{
   });
 }
 
-describe("Gemini Live API Integration", () => {
+const describeIntegration = API_KEY ? describe : describe.skip;
+
+describeIntegration("Gemini Live API Integration", () => {
   const testQuestions: Question[] = [
     { id: "1", title: "What's your name?", type: "short_text", required: true },
     { id: "2", title: "How old are you?", type: "short_text", required: false },

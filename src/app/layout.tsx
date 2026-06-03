@@ -1,42 +1,35 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const poppins = Poppins({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {
-  title: "Cauliform — Voice-Powered Google Forms",
+  title: "Cauliform — talk your forms in",
   description: "Fill out any Google Form with your voice, powered by Gemini Live API.",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/cauli-mascot.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Cauliform",
   },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-  },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#d97706" },
-    { media: "(prefers-color-scheme: dark)", color: "#18181b" },
-  ],
+  themeColor: "#f5efe1",
 };
 
 export default function RootLayout({
@@ -46,9 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${poppins.variable} antialiased`} style={{ fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)" }}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
